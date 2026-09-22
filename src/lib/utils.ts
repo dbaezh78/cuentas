@@ -1,49 +1,44 @@
-import { format, parseISO, startOfMonth, endOfMonth, subMonths } from 'date-fns';
+import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
-import type { CategoryKey, CategoryConfig, Expense, MonthlyTotal, CategoryTotal } from '../types';
+import { CategoryConfig, CategoryKey, Transaction, MonthlyTotal, CategoryTotal, PaymentMethod } from '../types';
 
 export const CATEGORIES: Record<CategoryKey, CategoryConfig> = {
-  combustible: { label: 'Combustible', icon: '⛽', color: '#F97316', bgColor: '#FFF7ED' },
-  compras: { label: 'Compras', icon: '🛒', color: '#3B82F6', bgColor: '#EFF6FF' },
-  apartamento: { label: 'Apartamento', icon: '🏠', color: '#8B5CF6', bgColor: '#F5F3FF' },
-  donaciones: { label: 'Donaciones', icon: '🤲', color: '#EC4899', bgColor: '#FDF2F8' },
-  salud: { label: 'Salud', icon: '💊', color: '#EF4444', bgColor: '#FEF2F2' },
-  restaurantes: { label: 'Restaurantes', icon: '🍽️', color: '#EAB308', bgColor: '#FEFCE8' },
-  transporte: { label: 'Transporte', icon: '🚗', color: '#06B6D4', bgColor: '#ECFEFF' },
-  entretenimiento: { label: 'Entretenimiento', icon: '🎬', color: '#6366F1', bgColor: '#EEF2FF' },
-  servicios: { label: 'Servicios', icon: '💡', color: '#22C55E', bgColor: '#F0FDF4' },
-  otros: { label: 'Otros', icon: '📦', color: '#6B7280', bgColor: '#F9FAFB' },
+  // --- GASTOS ---
+  combustible: { id: 'combustible', label: 'Combustible', icon: '⛽', color: 'bg-orange-100 text-orange-600', type: 'expense' },
+  compras: { id: 'compras', label: 'Compras', icon: '🛒', color: 'bg-blue-100 text-blue-600', type: 'expense' },
+  apartamento: { id: 'apartamento', label: 'Apartamento', icon: '🏠', color: 'bg-teal-100 text-teal-600', type: 'expense' },
+  donaciones: { id: 'donaciones', label: 'Donaciones', icon: '🤲', color: 'bg-rose-100 text-rose-600', type: 'expense' },
+  salud: { id: 'salud', label: 'Salud', icon: '💊', color: 'bg-red-100 text-red-600', type: 'expense' },
+  restaurantes: { id: 'restaurantes', label: 'Restaurantes', icon: '🍽️', color: 'bg-yellow-100 text-yellow-600', type: 'expense' },
+  transporte: { id: 'transporte', label: 'Transporte', icon: '🚗', color: 'bg-indigo-100 text-indigo-600', type: 'expense' },
+  entretenimiento: { id: 'entretenimiento', label: 'Entretenimiento', icon: '🎬', color: 'bg-purple-100 text-purple-600', type: 'expense' },
+  servicios: { id: 'servicios', label: 'Servicios', icon: '💡', color: 'bg-cyan-100 text-cyan-600', type: 'expense' },
+  otros: { id: 'otros', label: 'Otros', icon: '📦', color: 'bg-gray-100 text-gray-600', type: 'expense' },
+  
+  // --- INGRESOS ---
+  nomina: { id: 'nomina', label: 'Nómina', icon: '💼', color: 'bg-emerald-100 text-emerald-600', type: 'income' },
+  colateral: { id: 'colateral', label: 'Ingreso Colateral', icon: '📈', color: 'bg-green-100 text-green-600', type: 'income' },
 };
 
-export const PAYMENT_METHODS = {
-  efectivo: { label: 'Efectivo', icon: '💵' },
-  tarjeta: { label: 'Tarjeta', icon: '💳' },
-  transferencia: { label: 'Transferencia', icon: '📱' },
+export const PAYMENT_METHODS: Record<PaymentMethod, string> = {
+  cash: 'Efectivo',
+  card: 'Tarjeta',
+  transfer: 'Transferencia',
 };
 
-export function formatCurrency(amount: number, currency = 'USD'): string {
-  return new Intl.NumberFormat('es-VE', {
+export function formatCurrency(amount: number): string {
+  return new Intl.NumberFormat('es-DO', {
     style: 'currency',
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
+    currency: 'USD', // Using USD as requested implicitly or commonly used, adjust if DOP
   }).format(amount);
 }
 
-export function formatDate(dateStr: string): string {
-  try {
-    return format(parseISO(dateStr), "d 'de' MMMM, yyyy", { locale: es });
-  } catch {
-    return dateStr;
-  }
+export function formatDate(dateString: string): string {
+  return format(parseISO(dateString), "d 'de' MMMM, yyyy", { locale: es });
 }
 
-export function formatMonthYear(dateStr: string): string {
-  try {
-    return format(parseISO(dateStr + '-01'), 'MMMM yyyy', { locale: es });
-  } catch {
-    return dateStr;
-  }
+export function formatMonthYear(dateString: string): string {
+  return format(parseISO(dateString), 'MMMM yyyy', { locale: es });
 }
 
 export function getCurrentMonth(): string {
@@ -54,85 +49,70 @@ export function getCurrentDate(): string {
   return format(new Date(), 'yyyy-MM-dd');
 }
 
-export function getMonthRange(yearMonth: string): { start: Date; end: Date } {
-  const date = parseISO(yearMonth + '-01');
-  return {
-    start: startOfMonth(date),
-    end: endOfMonth(date),
-  };
-}
-
 export function getLast6Months(): string[] {
-  const months: string[] = [];
+  const months = [];
   for (let i = 5; i >= 0; i--) {
     months.push(format(subMonths(new Date(), i), 'yyyy-MM'));
   }
   return months;
 }
 
-export function calculateCategoryTotals(expenses: Expense[]): CategoryTotal[] {
-  const totalAmount = expenses.reduce((sum, e) => sum + e.amount, 0);
-  const grouped: Partial<Record<CategoryKey, { total: number; count: number }>> = {};
-
-  expenses.forEach((expense) => {
-    if (!grouped[expense.category]) {
-      grouped[expense.category] = { total: 0, count: 0 };
+export function calculateCategoryTotals(transactions: Transaction[]): CategoryTotal[] {
+  const totals = transactions.reduce((acc, curr) => {
+    if (!acc[curr.category]) {
+      acc[curr.category] = { category: curr.category, total: 0, count: 0, type: curr.type };
     }
-    grouped[expense.category]!.total += expense.amount;
-    grouped[expense.category]!.count += 1;
-  });
+    acc[curr.category].total += curr.amount;
+    acc[curr.category].count += 1;
+    return acc;
+  }, {} as Record<string, CategoryTotal>);
 
-  return Object.entries(grouped)
-    .map(([key, data]) => {
-      const cat = CATEGORIES[key as CategoryKey];
-      return {
-        category: key as CategoryKey,
-        label: cat.label,
-        icon: cat.icon,
-        color: cat.color,
-        total: data!.total,
-        count: data!.count,
-        percentage: totalAmount > 0 ? (data!.total / totalAmount) * 100 : 0,
-      };
-    })
-    .sort((a, b) => b.total - a.total);
+  return Object.values(totals).sort((a, b) => b.total - a.total);
 }
 
-export function calculateMonthlyTotals(expenses: Expense[]): MonthlyTotal[] {
-  const months = getLast6Months();
-  return months.map((month) => {
-    const monthExpenses = expenses.filter((e) => e.date.startsWith(month));
-    const total = monthExpenses.reduce((sum, e) => sum + e.amount, 0);
+export function calculateMonthlyTotals(transactions: Transaction[], months: string[]): MonthlyTotal[] {
+  return months.map(month => {
+    const monthTransactions = transactions.filter(t => t.date.startsWith(month));
+    const income = monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const expense = monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    
     return {
       month,
-      label: format(parseISO(month + '-01'), 'MMM yy', { locale: es }),
-      total,
+      income,
+      expense,
+      balance: income - expense
     };
   });
 }
 
-export function exportToCSV(expenses: Expense[], filename = 'gastos.csv'): void {
-  const headers = ['Fecha', 'Descripción', 'Categoría', 'Monto', 'Método de Pago', 'Notas'];
-  const rows = expenses.map((e) => [
-    e.date,
-    e.description,
-    CATEGORIES[e.category].label,
-    e.amount.toFixed(2),
-    PAYMENT_METHODS[e.paymentMethod].label,
-    e.notes || '',
+export function exportToCSV(transactions: Transaction[]) {
+  const headers = ['Fecha', 'Tipo', 'Categoría', 'Descripción', 'Método de Pago', 'Monto'];
+  
+  const rows = transactions.map(t => [
+    format(parseISO(t.date), 'dd/MM/yyyy'),
+    t.type === 'income' ? 'Ingreso' : 'Gasto',
+    CATEGORIES[t.category].label,
+    `"${t.description.replace(/"/g, '""')}"`, // Escape quotes
+    PAYMENT_METHODS[t.paymentMethod],
+    t.amount.toString()
   ]);
 
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(','))
-    .join('\n');
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(e => e.join(','))
+  ].join('\n');
 
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' }); // \uFEFF is BOM for Excel UTF-8
   const link = document.createElement('a');
-  link.href = url;
-  link.download = filename;
+  const url = URL.createObjectURL(blob);
+  
+  link.setAttribute('href', url);
+  link.setAttribute('download', `transacciones_${format(new Date(), 'yyyy-MM')}.csv`);
+  link.style.visibility = 'hidden';
+  
+  document.body.appendChild(link);
   link.click();
-  URL.revokeObjectURL(url);
+  document.body.removeChild(link);
 }
 
 export function classNames(...classes: (string | undefined | null | false)[]): string {

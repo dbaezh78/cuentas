@@ -1,74 +1,69 @@
-export type CategoryKey =
-  | 'combustible'
-  | 'compras'
-  | 'apartamento'
-  | 'donaciones'
-  | 'salud'
-  | 'restaurantes'
-  | 'transporte'
-  | 'entretenimiento'
+export type CategoryKey = 
+  // Gastos
+  | 'combustible' 
+  | 'compras' 
+  | 'apartamento' 
+  | 'donaciones' 
+  | 'salud' 
+  | 'restaurantes' 
+  | 'transporte' 
+  | 'entretenimiento' 
   | 'servicios'
-  | 'otros';
+  | 'otros'
+  // Ingresos
+  | 'nomina'
+  | 'colateral';
 
-export type PaymentMethod = 'efectivo' | 'tarjeta' | 'transferencia';
+export type PaymentMethod = 'cash' | 'card' | 'transfer';
+export type TransactionType = 'income' | 'expense';
 
-export interface Expense {
+export interface Transaction {
   id: string;
   amount: number;
   category: CategoryKey;
   description: string;
-  date: string; // YYYY-MM-DD
+  date: string; // ISO string
   paymentMethod: PaymentMethod;
-  notes?: string;
-  createdAt: Date;
-  updatedAt?: Date;
+  type: TransactionType;
 }
 
-export interface ExpenseFormData {
-  amount: string;
-  category: CategoryKey;
-  description: string;
-  date: string;
-  paymentMethod: PaymentMethod;
-  notes?: string;
-}
+export type TransactionFormData = Omit<Transaction, 'id'>;
 
 export interface CategoryConfig {
+  id: CategoryKey;
   label: string;
   icon: string;
   color: string;
-  bgColor: string;
+  type: TransactionType;
 }
 
 export interface MonthlyTotal {
-  month: string; // 'YYYY-MM'
-  label: string; // 'Sep 2026'
-  total: number;
+  month: string;
+  income: number;
+  expense: number;
+  balance: number;
 }
 
 export interface CategoryTotal {
   category: CategoryKey;
-  label: string;
-  icon: string;
-  color: string;
   total: number;
   count: number;
-  percentage: number;
+  type: TransactionType;
 }
 
 export interface DashboardStats {
-  totalThisMonth: number;
-  totalLastMonth: number;
+  totalIncome: number;
+  totalExpense: number;
+  balance: number;
+  lastMonthBalance: number;
   transactionCount: number;
-  topCategory: CategoryTotal | null;
-  categoryTotals: CategoryTotal[];
-  monthlyTotals: MonthlyTotal[];
-  recentExpenses: Expense[];
+  dailyAverageExpense: number;
 }
 
 export interface FilterState {
-  month: string; // 'YYYY-MM'
-  category: CategoryKey | 'todas';
+  month: string | null;
+  category: CategoryKey | null;
+  paymentMethod: PaymentMethod | null;
+  type: TransactionType | null;
   search: string;
-  paymentMethod: PaymentMethod | 'todos';
 }

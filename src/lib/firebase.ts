@@ -44,12 +44,12 @@ export {
   serverTimestamp,
 };
 
-export function getUserExpensesRef(userId: string) {
-  return collection(db, 'users', userId, 'expenses');
-}
+export const getUserTransactionsRef = (userId: string) => {
+  return collection(db, 'users', userId, 'transactions');
+};
 
-export function getUserExpenseDocRef(userId: string, expenseId: string) {
-  return doc(db, 'users', userId, 'expenses', expenseId);
-}
+export const getUserTransactionDocRef = (userId: string, transactionId: string) => {
+  return doc(db, 'users', userId, 'transactions', transactionId);
+};
 
 export default app;
