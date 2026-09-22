@@ -1,5 +1,5 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { CATEGORIES } from '../../lib/utils';
+import { getCategoryConfig } from '../../lib/utils';
 import type { CategoryTotal } from '../../types';
 import { useSettings } from '../../contexts/SettingsContext';
 
@@ -10,7 +10,7 @@ interface CategoryChartProps {
 }
 
 export default function CategoryChart({ data }: CategoryChartProps) {
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, customCategories } = useSettings();
   const top5 = data.slice(0, 5);
 
   if (top5.length === 0) {
@@ -50,7 +50,7 @@ export default function CategoryChart({ data }: CategoryChartProps) {
       {/* Legend */}
       <div className="mt-4 space-y-2">
         {top5.map((item, index) => {
-          const cat = CATEGORIES[item.category];
+          const cat = getCategoryConfig(item.category, customCategories);
           return (
             <div key={item.category} className="flex items-center gap-2 text-sm">
               <span

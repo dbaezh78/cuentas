@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Download } from 'lucide-react';
 import { useTransactions } from '../hooks/useTransactions';
 import {
@@ -7,31 +7,39 @@ import {
   getLast6Months,
   formatMonthYear,
   exportToCSV,
-  CATEGORIES,
+  getCategoryConfig,
 } from '../lib/utils';
 import { useSettings } from '../contexts/SettingsContext';
 
 export default function ReportsPage() {
   const { transactions } = useTransactions();
-  const { formatCurrency } = useSettings();
+  const { formatCurrency, customCategories } = useSettings();
   const months = getLast6Months();
-  const [selectedMonth, setSelectedMonth] = useState(months[months.length - 1]);
+  const [selectedMonth, setSelectedMonth] = useState(''); // '' = all months
 
-  const monthlyTotals = useMemo(() => calculateMonthlyTotals(transactions, months), [transactions]);
+  const monthlyTotals = useMemo(
+    () => calculateMonthlyTotals(transactions, months),
+    [transactions]
+  );
 
-  const monthTransactions = useMemo(
-    () => transactions.filter(t => t.date.startsWith(selectedMonth)),
+  // For the selected month (or all)
+  const filteredTx = useMemo(() =>
+    selectedMonth ? transactions.filter(t => t.date.startsWith(selectedMonth)) : transactions,
     [transactions, selectedMonth]
   );
 
   const expenseTotals = useMemo(
-    () => calculateCategoryTotals(monthTransactions.filter(t => t.type === 'expense')),
-    [monthTransactions]
+    () => calculateCategoryTotals(filteredTx.filter(t => t.type === 'expense')),
+    [filteredTx]
   );
 
-  const income = monthTransactions.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
-  const expense = monthTransactions.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const balance = income - expense;
+  const income = filteredTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
+  const expense = filteredTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+  // Balance for "all months" is the cumulative (last month's running balance)
+  const balance = selectedMonth
+    ? (monthlyTotals.find(m => m.month === selectedMonth)?.balance || income - expense)
+    : (monthlyTotals[monthlyTotals.length - 1]?.balance || income - expense);
+
   const maxExpense = expenseTotals[0]?.total || 1;
 
   return (
@@ -45,17 +53,16 @@ export default function ReportsPage() {
         <div className="flex items-center gap-3">
           <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
+            onChange={e => setSelectedMonth(e.target.value)}
             className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
-            {months.map((m) => (
-              <option key={m} value={m}>
-                {formatMonthYear(m + '-01')}
-              </option>
+            <option value="">Todos los meses</option>
+            {months.map(m => (
+              <option key={m} value={m}>{formatMonthYear(m + '-01')}</option>
             ))}
           </select>
           <button
-            onClick={() => exportToCSV(transactions)}
+            onClick={() => exportToCSV(transactions, customCategories)}
             className="flex items-center gap-2 px-4 py-2.5 bg-green-600 text-white font-medium rounded-xl hover:bg-green-700 transition-colors"
           >
             <Download size={16} />
@@ -75,7 +82,7 @@ export default function ReportsPage() {
           <p className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(expense)}</p>
         </div>
         <div className={`rounded-2xl p-5 border ${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800'}`}>
-          <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Residuo</p>
+          <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Balance</p>
           <p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>{formatCurrency(balance)}</p>
         </div>
       </div>
@@ -85,8 +92,8 @@ export default function ReportsPage() {
         <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
           <h2 className="font-semibold text-gray-900 dark:text-white mb-5">Gastos por Categoría</h2>
           <div className="space-y-3">
-            {expenseTotals.map((item) => {
-              const cat = CATEGORIES[item.category];
+            {expenseTotals.map(item => {
+              const cat = getCategoryConfig(item.category, customCategories);
               const pct = (item.total / maxExpense) * 100;
               return (
                 <div key={item.category} className="flex items-center gap-3">
@@ -97,10 +104,7 @@ export default function ReportsPage() {
                       <span className="text-gray-500 dark:text-gray-400">{formatCurrency(item.total)}</span>
                     </div>
                     <div className="h-2 bg-gray-100 dark:bg-gray-700 rounded-full overflow-hidden">
-                      <div
-                        className="h-2 bg-blue-500 rounded-full transition-all"
-                        style={{ width: `${pct}%` }}
-                      />
+                      <div className="h-2 bg-blue-500 rounded-full transition-all" style={{ width: `${pct}%` }} />
                     </div>
                   </div>
                 </div>
@@ -110,7 +114,7 @@ export default function ReportsPage() {
         </div>
       )}
 
-      {/* Monthly summary table */}
+      {/* Monthly table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
         <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Historial de 6 Meses</h2>
         <div className="overflow-x-auto">
@@ -120,11 +124,11 @@ export default function ReportsPage() {
                 <th className="pb-3 font-medium">Mes</th>
                 <th className="pb-3 font-medium text-green-600">Ingresos</th>
                 <th className="pb-3 font-medium text-red-600">Gastos</th>
-                <th className="pb-3 font-medium text-blue-600">Residuo</th>
+                <th className="pb-3 font-medium text-blue-600">Balance</th>
               </tr>
             </thead>
             <tbody>
-              {monthlyTotals.map((m) => (
+              {monthlyTotals.map(m => (
                 <tr key={m.month} className={`border-b border-gray-50 dark:border-gray-700 last:border-0 ${m.month === selectedMonth ? 'bg-blue-50/50 dark:bg-blue-900/20' : ''}`}>
                   <td className="py-3 font-medium text-gray-900 dark:text-white capitalize">
                     {formatMonthYear(m.month + '-01')}

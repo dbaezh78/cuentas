@@ -1,36 +1,39 @@
 export type CategoryKey = 
-  // Gastos
-  | 'combustible' 
-  | 'compras' 
-  | 'apartamento' 
-  | 'donaciones' 
-  | 'salud' 
-  | 'restaurantes' 
-  | 'transporte' 
-  | 'entretenimiento' 
-  | 'servicios'
-  | 'otros'
-  // Ingresos
-  | 'nomina'
-  | 'colateral';
+  | 'combustible' | 'compras' | 'apartamento' | 'donaciones' | 'salud' 
+  | 'restaurantes' | 'transporte' | 'entretenimiento' | 'servicios' | 'otros'
+  | 'nomina' | 'colateral';
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 export type TransactionType = 'income' | 'expense';
 
-export interface Transaction {
+export interface TransactionDetail {
+  detalle: string;
+  valor: number;
+}
+
+export interface CustomCategory {
   id: string;
-  amount: number;
-  category: CategoryKey;
-  description: string;
-  date: string; // ISO string
-  paymentMethod: PaymentMethod;
+  label: string;
+  icon: string;
   type: TransactionType;
 }
 
-export type TransactionFormData = Omit<Transaction, 'id'>;
+export interface Transaction {
+  id: string;
+  amount: number;
+  category: string; // string allows both CategoryKey and custom category ids
+  description: string;
+  date: string;
+  paymentMethod: PaymentMethod;
+  type: TransactionType;
+  details?: TransactionDetail[];
+  _sourceCollection?: 'expenses' | 'transactions'; // in-memory only, never saved to Firestore
+}
+
+export type TransactionFormData = Omit<Transaction, 'id' | '_sourceCollection'>;
 
 export interface CategoryConfig {
-  id: CategoryKey;
+  id: string;
   label: string;
   icon: string;
   color: string;
@@ -41,28 +44,19 @@ export interface MonthlyTotal {
   month: string;
   income: number;
   expense: number;
-  balance: number;
+  balance: number; // cumulative (carries over from previous month)
 }
 
 export interface CategoryTotal {
-  category: CategoryKey;
+  category: string;
   total: number;
   count: number;
   type: TransactionType;
 }
 
-export interface DashboardStats {
-  totalIncome: number;
-  totalExpense: number;
-  balance: number;
-  lastMonthBalance: number;
-  transactionCount: number;
-  dailyAverageExpense: number;
-}
-
 export interface FilterState {
   month: string | null;
-  category: CategoryKey | null;
+  category: string | null;
   paymentMethod: PaymentMethod | null;
   type: TransactionType | null;
   search: string;

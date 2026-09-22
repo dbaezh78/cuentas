@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, getDocs, addDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
+import type { CustomCategory } from '../types';
 
 export const CURRENCIES = [
   { code: 'DOP', label: 'Peso Dominicano', symbol: 'RD$', locale: 'es-DO' },
@@ -42,6 +43,10 @@ interface SettingsContextType {
   formatCurrency: (amount: number) => string;
   currentCurrency: typeof CURRENCIES[0];
   loading: boolean;
+  // Custom categories
+  customCategories: CustomCategory[];
+  addCustomCategory: (cat: Omit<CustomCategory, 'id'>) => Promise<void>;
+  deleteCustomCategory: (id: string) => Promise<void>;
 }
 
 const SettingsContext = createContext<SettingsContextType | null>(null);
@@ -49,26 +54,36 @@ const SettingsContext = createContext<SettingsContextType | null>(null);
 export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth();
   const [settings, setSettings] = useState<UserSettings>(DEFAULT_SETTINGS);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Load settings from Firestore
   useEffect(() => {
     if (!user) {
       setSettings(DEFAULT_SETTINGS);
+      setCustomCategories([]);
       setLoading(false);
       return;
     }
 
     const settingsRef = doc(db, 'users', user.uid, 'settings', 'preferences');
-    getDoc(settingsRef).then((snap) => {
-      if (snap.exists()) {
-        setSettings({ ...DEFAULT_SETTINGS, ...snap.data() });
+    const categoriesRef = collection(db, 'users', user.uid, 'categories');
+
+    Promise.all([
+      getDoc(settingsRef),
+      getDocs(categoriesRef),
+    ]).then(([settingsSnap, categoriesSnap]) => {
+      if (settingsSnap.exists()) {
+        setSettings({ ...DEFAULT_SETTINGS, ...settingsSnap.data() });
       }
+      const cats: CustomCategory[] = categoriesSnap.docs.map(d => ({
+        id: d.id,
+        ...(d.data() as Omit<CustomCategory, 'id'>),
+      }));
+      setCustomCategories(cats);
       setLoading(false);
     }).catch(() => setLoading(false));
   }, [user]);
 
-  // Apply dark mode to <html>
   useEffect(() => {
     if (settings.darkMode) {
       document.documentElement.classList.add('dark');
@@ -80,12 +95,25 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   const updateSettings = useCallback(async (partial: Partial<UserSettings>) => {
     const updated = { ...settings, ...partial };
     setSettings(updated);
-
     if (user) {
       const settingsRef = doc(db, 'users', user.uid, 'settings', 'preferences');
       await setDoc(settingsRef, updated, { merge: true });
     }
   }, [settings, user]);
+
+  const addCustomCategory = useCallback(async (cat: Omit<CustomCategory, 'id'>) => {
+    if (!user) return;
+    const categoriesRef = collection(db, 'users', user.uid, 'categories');
+    const docRef = await addDoc(categoriesRef, cat);
+    setCustomCategories(prev => [...prev, { id: docRef.id, ...cat }]);
+  }, [user]);
+
+  const deleteCustomCategory = useCallback(async (id: string) => {
+    if (!user) return;
+    const catRef = doc(db, 'users', user.uid, 'categories', id);
+    await deleteDoc(catRef);
+    setCustomCategories(prev => prev.filter(c => c.id !== id));
+  }, [user]);
 
   const currentCurrency = CURRENCIES.find(c => c.code === settings.currencyCode) || CURRENCIES[0];
 
@@ -99,7 +127,10 @@ export function SettingsProvider({ children }: { children: React.ReactNode }) {
   }, [currentCurrency]);
 
   return (
-    <SettingsContext.Provider value={{ settings, updateSettings, formatCurrency, currentCurrency, loading }}>
+    <SettingsContext.Provider value={{
+      settings, updateSettings, formatCurrency, currentCurrency, loading,
+      customCategories, addCustomCategory, deleteCustomCategory,
+    }}>
       {children}
     </SettingsContext.Provider>
   );
