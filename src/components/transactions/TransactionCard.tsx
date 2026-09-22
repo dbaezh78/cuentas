@@ -1,5 +1,6 @@
 import { Pencil, Trash2 } from 'lucide-react';
-import { CATEGORIES, PAYMENT_METHODS, formatCurrency, formatDate } from '../../lib/utils';
+import { CATEGORIES, PAYMENT_METHODS, formatDate } from '../../lib/utils';
+import { useSettings } from '../../contexts/SettingsContext';
 import type { Transaction } from '../../types';
 
 interface TransactionCardProps {
@@ -9,6 +10,7 @@ interface TransactionCardProps {
 }
 
 export default function TransactionCard({ transaction, onEdit, onDelete }: TransactionCardProps) {
+  const { formatCurrency } = useSettings();
   const cat = CATEGORIES[transaction.category];
   const method = PAYMENT_METHODS[transaction.paymentMethod];
   const isIncome = transaction.type === 'income';

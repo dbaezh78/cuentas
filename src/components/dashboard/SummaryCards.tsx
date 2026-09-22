@@ -1,5 +1,5 @@
 import { TrendingUp, TrendingDown, Receipt, Wallet } from 'lucide-react';
-import { formatCurrency } from '../../lib/utils';
+import { useSettings } from '../../contexts/SettingsContext';
 import type { MonthlyTotal } from '../../types';
 
 interface SummaryCardsProps {
@@ -11,6 +11,7 @@ export default function SummaryCards({
   currentMonthTotal,
   transactionCount,
 }: SummaryCardsProps) {
+  const { formatCurrency } = useSettings();
   const income = currentMonthTotal?.income || 0;
   const expense = currentMonthTotal?.expense || 0;
   const balance = currentMonthTotal?.balance || 0;

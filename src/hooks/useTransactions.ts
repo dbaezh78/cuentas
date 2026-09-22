@@ -6,10 +6,11 @@ import {
   query,
   orderBy,
   getDocs,
-  Timestamp,
+  collection,
   serverTimestamp,
   getUserTransactionsRef,
   getUserTransactionDocRef,
+  db,
 } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import type { Transaction, TransactionFormData } from '../types';
@@ -30,11 +31,18 @@ export function useTransactions() {
     try {
       setLoading(true);
       setError(null);
-      const ref = getUserTransactionsRef(user.uid);
-      const q = query(ref, orderBy('date', 'desc'));
-      const snapshot = await getDocs(q);
 
-      const data: Transaction[] = snapshot.docs.map((doc) => {
+      // Read from BOTH collections so old data (expenses) still shows up
+      const oldRef = collection(db, 'users', user.uid, 'expenses');
+      const newRef = getUserTransactionsRef(user.uid);
+
+      const [oldSnap, newSnap] = await Promise.all([
+        getDocs(query(oldRef, orderBy('date', 'desc'))),
+        getDocs(query(newRef, orderBy('date', 'desc'))),
+      ]);
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const mapDoc = (doc: any, defaultType: 'income' | 'expense' = 'expense'): Transaction => {
         const d = doc.data();
         return {
           id: doc.id,
@@ -42,15 +50,20 @@ export function useTransactions() {
           category: d.category,
           description: d.description as string,
           date: d.date as string,
-          paymentMethod: d.paymentMethod,
-          type: d.type || 'expense', // fallback
-          notes: d.notes as string | undefined,
-          createdAt: d.createdAt instanceof Timestamp ? d.createdAt.toDate() : new Date(),
-          updatedAt: d.updatedAt instanceof Timestamp ? d.updatedAt.toDate() : undefined,
+          paymentMethod: d.paymentMethod || 'cash',
+          type: (d.type as 'income' | 'expense') || defaultType,
         };
-      });
+      };
 
-      setTransactions(data);
+      const oldData: Transaction[] = oldSnap.docs.map(d => mapDoc(d, 'expense'));
+      const newData: Transaction[] = newSnap.docs.map(d => mapDoc(d, 'expense'));
+
+      // Merge and sort by date (avoid duplicates by id)
+      const allById = new Map<string, Transaction>();
+      [...oldData, ...newData].forEach(t => allById.set(t.id, t));
+      const merged = Array.from(allById.values()).sort((a, b) => b.date.localeCompare(a.date));
+
+      setTransactions(merged);
     } catch (err) {
       console.error('Error fetching transactions:', err);
       setError('Error al cargar las transacciones. Verifica tu conexión.');
