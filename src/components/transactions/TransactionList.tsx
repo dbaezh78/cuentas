@@ -1,183 +1,107 @@
 import { useState, useMemo } from 'react';
-import { Search, Filter, X } from 'lucide-react';
-import ExpenseCard from './ExpenseCard';
+import TransactionCard from './TransactionCard';
+import type { Transaction, CategoryKey, PaymentMethod, TransactionType } from '../../types';
 import { CATEGORIES, getCurrentMonth } from '../../lib/utils';
-import type { Expense, CategoryKey, PaymentMethod } from '../../types';
 
-interface ExpenseListProps {
-  expenses: Expense[];
-  onEdit: (expense: Expense) => void;
+interface TransactionListProps {
+  transactions: Transaction[];
+  onEdit: (t: Transaction) => void;
   onDelete: (id: string) => void;
 }
 
-export default function ExpenseList({ expenses, onEdit, onDelete }: ExpenseListProps) {
+export default function TransactionList({ transactions, onEdit, onDelete }: TransactionListProps) {
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | 'todas'>('todas');
-  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
-  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | 'todos'>('todos');
-  const [showFilters, setShowFilters] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<string>(getCurrentMonth());
+  const [selectedCategory, setSelectedCategory] = useState<CategoryKey | ''>('');
+  const [selectedType, setSelectedType] = useState<TransactionType | ''>('');
+  const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | ''>('');
+
+  const months = useMemo(() => {
+    const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    return Array.from(set).sort().reverse();
+  }, [transactions]);
 
   const filtered = useMemo(() => {
-    return expenses.filter((e) => {
-      const matchMonth = selectedMonth === '' || e.date.startsWith(selectedMonth);
-      const matchCat = selectedCategory === 'todas' || e.category === selectedCategory;
-      const matchSearch =
-        search === '' ||
-        e.description.toLowerCase().includes(search.toLowerCase()) ||
-        e.notes?.toLowerCase().includes(search.toLowerCase());
-      const matchPayment = selectedPayment === 'todos' || e.paymentMethod === selectedPayment;
-      return matchMonth && matchCat && matchSearch && matchPayment;
+    return transactions.filter(t => {
+      if (selectedMonth && !t.date.startsWith(selectedMonth)) return false;
+      if (selectedCategory && t.category !== selectedCategory) return false;
+      if (selectedType && t.type !== selectedType) return false;
+      if (selectedPayment && t.paymentMethod !== selectedPayment) return false;
+      if (search && !t.description.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
     });
-  }, [expenses, search, selectedCategory, selectedMonth, selectedPayment]);
+  }, [transactions, selectedMonth, selectedCategory, selectedType, selectedPayment, search]);
 
-  const total = filtered.reduce((sum, e) => sum + e.amount, 0);
-
-  const clearFilters = () => {
-    setSearch('');
-    setSelectedCategory('todas');
-    setSelectedMonth(getCurrentMonth());
-    setSelectedPayment('todos');
-  };
-
-  const hasActiveFilters =
-    selectedCategory !== 'todas' || selectedPayment !== 'todos' || search !== '';
+  const categoryKeys = Object.entries(CATEGORIES) as [CategoryKey, typeof CATEGORIES[CategoryKey]][];
 
   return (
     <div className="space-y-4">
-      {/* Search & Filters Bar */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-        <div className="flex gap-3">
-          <div className="relative flex-1">
-            <Search size={16} className="absolute left-3 top-3 text-gray-400" />
-            <input
-              type="text"
-              placeholder="Buscar gastos..."
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="w-full pl-9 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-          <input
-            type="month"
+      {/* Filters */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
+        <input
+          type="text"
+          placeholder="Buscar por descripción..."
+          value={search}
+          onChange={e => setSearch(e.target.value)}
+          className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+        />
+        <div className="flex flex-wrap gap-2">
+          <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="px-3 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          />
-          <button
-            onClick={() => setShowFilters(!showFilters)}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium transition-colors border ${
-              showFilters || hasActiveFilters
-                ? 'bg-blue-50 text-blue-600 border-blue-200'
-                : 'bg-white text-gray-600 border-gray-200 hover:border-gray-300'
-            }`}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
           >
-            <Filter size={16} />
-            Filtros
-            {hasActiveFilters && (
-              <span className="w-2 h-2 bg-blue-500 rounded-full" />
-            )}
-          </button>
+            <option value="">Todos los meses</option>
+            {months.map(m => (
+              <option key={m} value={m}>{m}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedType}
+            onChange={e => setSelectedType(e.target.value as TransactionType | '')}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="">Tipo</option>
+            <option value="income">Ingresos</option>
+            <option value="expense">Gastos</option>
+          </select>
+
+          <select
+            value={selectedCategory}
+            onChange={e => setSelectedCategory(e.target.value as CategoryKey | '')}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="">Categoría</option>
+            {categoryKeys.map(([k, cat]) => (
+              <option key={k} value={k}>{cat.icon} {cat.label}</option>
+            ))}
+          </select>
+
+          <select
+            value={selectedPayment}
+            onChange={e => setSelectedPayment(e.target.value as PaymentMethod | '')}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+          >
+            <option value="">Método</option>
+            <option value="cash">Efectivo</option>
+            <option value="card">Tarjeta</option>
+            <option value="transfer">Transferencia</option>
+          </select>
         </div>
-
-        {/* Expanded filters */}
-        {showFilters && (
-          <div className="mt-3 pt-3 border-t border-gray-100 space-y-3">
-            {/* Categories */}
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setSelectedCategory('todas')}
-                className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                  selectedCategory === 'todas'
-                    ? 'bg-blue-500 text-white'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                }`}
-              >
-                Todas
-              </button>
-              {(Object.entries(CATEGORIES) as [CategoryKey, typeof CATEGORIES[CategoryKey]][]).map(
-                ([key, cat]) => (
-                  <button
-                    key={key}
-                    onClick={() => setSelectedCategory(key)}
-                    className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
-                      selectedCategory === key
-                        ? 'text-white'
-                        : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                    }`}
-                    style={
-                      selectedCategory === key
-                        ? { backgroundColor: cat.color }
-                        : undefined
-                    }
-                  >
-                    {cat.icon} {cat.label}
-                  </button>
-                )
-              )}
-            </div>
-
-            {/* Payment methods */}
-            <div className="flex gap-2">
-              {(['todos', 'efectivo', 'tarjeta', 'transferencia'] as const).map((p) => (
-                <button
-                  key={p}
-                  onClick={() => setSelectedPayment(p)}
-                  className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors capitalize ${
-                    selectedPayment === p
-                      ? 'bg-blue-500 text-white'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
-                  }`}
-                >
-                  {p === 'todos' ? 'Todos los métodos' : p}
-                </button>
-              ))}
-            </div>
-
-            {hasActiveFilters && (
-              <button
-                onClick={clearFilters}
-                className="flex items-center gap-1 text-xs text-red-500 hover:text-red-600"
-              >
-                <X size={12} /> Limpiar filtros
-              </button>
-            )}
-          </div>
-        )}
-      </div>
-
-      {/* Results count */}
-      <div className="flex items-center justify-between px-1">
-        <p className="text-sm text-gray-500">
-          {filtered.length} gasto{filtered.length !== 1 ? 's' : ''}
-        </p>
-        <p className="text-sm font-semibold text-gray-900">
-          Total: ${total.toFixed(2)}
-        </p>
       </div>
 
       {/* List */}
       {filtered.length === 0 ? (
-        <div className="bg-white rounded-2xl p-12 text-center shadow-sm border border-gray-100">
-          <p className="text-4xl mb-3">🔍</p>
-          <p className="text-gray-500">No se encontraron gastos</p>
-          {hasActiveFilters && (
-            <button
-              onClick={clearFilters}
-              className="mt-2 text-sm text-blue-600 hover:underline"
-            >
-              Limpiar filtros
-            </button>
-          )}
+        <div className="text-center py-16 text-gray-400 dark:text-gray-500">
+          <p className="text-4xl mb-3">📭</p>
+          <p className="font-medium">Sin transacciones</p>
+          <p className="text-sm mt-1">Agrega tu primer ingreso o gasto</p>
         </div>
       ) : (
         <div className="space-y-2">
-          {filtered.map((expense) => (
-            <ExpenseCard
-              key={expense.id}
-              expense={expense}
-              onEdit={onEdit}
-              onDelete={onDelete}
-            />
+          {filtered.map(t => (
+            <TransactionCard key={t.id} transaction={t} onEdit={onEdit} onDelete={onDelete} />
           ))}
         </div>
       )}

@@ -3,47 +3,42 @@ import { Plus } from 'lucide-react';
 import SummaryCards from '../components/dashboard/SummaryCards';
 import CategoryChart from '../components/dashboard/CategoryChart';
 import MonthlyChart from '../components/dashboard/MonthlyChart';
-import RecentExpenses from '../components/dashboard/RecentExpenses';
-import ExpenseForm from '../components/expenses/ExpenseForm';
-import { useExpenses } from '../hooks/useExpenses';
+import RecentTransactions from '../components/dashboard/RecentTransactions';
+import TransactionForm from '../components/transactions/TransactionForm';
+import { useTransactions } from '../hooks/useTransactions';
 import { useAuth } from '../contexts/AuthContext';
 import {
   calculateCategoryTotals,
   calculateMonthlyTotals,
   getCurrentMonth,
+  getLast6Months,
   formatMonthYear,
 } from '../lib/utils';
-import type { ExpenseFormData } from '../types';
+import type { TransactionFormData } from '../types';
 
 export default function DashboardPage() {
   const { user } = useAuth();
-  const { expenses, loading, addExpense } = useExpenses();
+  const { transactions, loading, addTransaction } = useTransactions();
   const [showForm, setShowForm] = useState(false);
 
   const currentMonth = getCurrentMonth();
-  const prevMonth = (() => {
-    const [y, m] = currentMonth.split('-').map(Number);
-    if (m === 1) return `${y - 1}-12`;
-    return `${y}-${String(m - 1).padStart(2, '0')}`;
-  })();
+  const months = getLast6Months();
 
-  const thisMonthExpenses = useMemo(
-    () => expenses.filter((e) => e.date.startsWith(currentMonth)),
-    [expenses, currentMonth]
-  );
-  const lastMonthExpenses = useMemo(
-    () => expenses.filter((e) => e.date.startsWith(prevMonth)),
-    [expenses, prevMonth]
+  const currentMonthTransactions = useMemo(
+    () => transactions.filter((t) => t.date.startsWith(currentMonth)),
+    [transactions, currentMonth]
   );
 
-  const totalThisMonth = thisMonthExpenses.reduce((s, e) => s + e.amount, 0);
-  const totalLastMonth = lastMonthExpenses.reduce((s, e) => s + e.amount, 0);
-  const categoryTotals = useMemo(() => calculateCategoryTotals(thisMonthExpenses), [thisMonthExpenses]);
-  const monthlyTotals = useMemo(() => calculateMonthlyTotals(expenses), [expenses]);
-  const recentExpenses = expenses.slice(0, 5);
+  const monthlyTotals = useMemo(() => calculateMonthlyTotals(transactions, months), [transactions, months]);
+  const currentMonthTotal = monthlyTotals.find(m => m.month === currentMonth);
 
-  const handleAddExpense = async (data: ExpenseFormData) => {
-    await addExpense(data);
+  const expenseTotals = useMemo(
+    () => calculateCategoryTotals(currentMonthTransactions.filter(t => t.type === 'expense')),
+    [currentMonthTransactions]
+  );
+
+  const handleAdd = async (data: TransactionFormData) => {
+    await addTransaction(data);
   };
 
   if (loading) {
@@ -51,7 +46,7 @@ export default function DashboardPage() {
       <div className="flex items-center justify-center h-64">
         <div className="text-center">
           <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <p className="text-gray-500 text-sm">Cargando...</p>
+          <p className="text-gray-500 dark:text-gray-400 text-sm">Cargando...</p>
         </div>
       </div>
     );
@@ -62,11 +57,11 @@ export default function DashboardPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">
+          <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
             👋 Hola, {user?.displayName?.split(' ')[0] || 'Usuario'}
           </h1>
-          <p className="text-gray-500 text-sm mt-1 capitalize">
-            Resumen de {formatMonthYear(currentMonth)}
+          <p className="text-gray-500 dark:text-gray-400 text-sm mt-1 capitalize">
+            Resumen de {formatMonthYear(currentMonth + '-01')}
           </p>
         </div>
         <button
@@ -74,30 +69,29 @@ export default function DashboardPage() {
           className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
         >
           <Plus size={18} />
-          <span className="hidden sm:inline">Nuevo Gasto</span>
+          <span className="hidden sm:inline">Nueva Transacción</span>
         </button>
       </div>
 
       {/* Summary Cards */}
       <SummaryCards
-        totalThisMonth={totalThisMonth}
-        totalLastMonth={totalLastMonth}
-        transactionCount={thisMonthExpenses.length}
+        currentMonthTotal={currentMonthTotal}
+        transactionCount={currentMonthTransactions.length}
       />
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <CategoryChart data={categoryTotals} />
+        <CategoryChart data={expenseTotals} />
         <MonthlyChart data={monthlyTotals} />
       </div>
 
-      {/* Recent Expenses */}
-      <RecentExpenses expenses={recentExpenses} />
+      {/* Recent Transactions */}
+      <RecentTransactions transactions={transactions.slice(0, 5)} />
 
-      {/* Expense Form Modal */}
+      {/* Form Modal */}
       {showForm && (
-        <ExpenseForm
-          onSubmit={handleAddExpense}
+        <TransactionForm
+          onSubmit={handleAdd}
           onClose={() => setShowForm(false)}
         />
       )}

@@ -1,4 +1,4 @@
-import { format, subMonths, startOfMonth, endOfMonth, isWithinInterval, parseISO } from 'date-fns';
+import { format, subMonths, parseISO } from 'date-fns';
 import { es } from 'date-fns/locale';
 import { CategoryConfig, CategoryKey, Transaction, MonthlyTotal, CategoryTotal, PaymentMethod } from '../types';
 

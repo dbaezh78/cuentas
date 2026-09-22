@@ -1,87 +1,71 @@
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts';
-import { formatCurrency } from '../../lib/utils';
+import { CATEGORIES } from '../../lib/utils';
 import type { CategoryTotal } from '../../types';
+import { useSettings } from '../../contexts/SettingsContext';
+
+const COLORS = ['#3b82f6', '#8b5cf6', '#f59e0b', '#10b981', '#ef4444', '#6366f1', '#ec4899', '#14b8a6'];
 
 interface CategoryChartProps {
   data: CategoryTotal[];
 }
 
-const RADIAN = Math.PI / 180;
-const renderCustomizedLabel = ({
-  cx, cy, midAngle, innerRadius, outerRadius, percent,
-}: { cx: number; cy: number; midAngle: number; innerRadius: number; outerRadius: number; percent: number }) => {
-  if (percent < 0.05) return null;
-  const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-  const x = cx + radius * Math.cos(-midAngle * RADIAN);
-  const y = cy + radius * Math.sin(-midAngle * RADIAN);
-  return (
-    <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={600}>
-      {`${(percent * 100).toFixed(0)}%`}
-    </text>
-  );
-};
-
 export default function CategoryChart({ data }: CategoryChartProps) {
-  if (data.length === 0) {
+  const { formatCurrency } = useSettings();
+  const top5 = data.slice(0, 5);
+
+  if (top5.length === 0) {
     return (
-      <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-        <h3 className="font-semibold text-gray-900 mb-4">Gastos por Categoría</h3>
-        <div className="flex items-center justify-center h-48 text-gray-400">
-          <p>Sin gastos este mes</p>
-        </div>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm flex items-center justify-center h-64">
+        <p className="text-gray-400 dark:text-gray-500 text-sm">Sin datos este mes</p>
       </div>
     );
   }
 
-  const chartData = data.map((d) => ({
-    name: `${d.icon} ${d.label}`,
-    value: d.total,
-    color: d.color,
-    percentage: d.percentage,
-  }));
-
   return (
-    <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-      <h3 className="font-semibold text-gray-900 mb-4">Gastos por Categoría</h3>
-      <ResponsiveContainer width="100%" height={220}>
+    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+      <h2 className="font-semibold text-gray-900 dark:text-white mb-5">Gastos por Categoría</h2>
+      <ResponsiveContainer width="100%" height={200}>
         <PieChart>
           <Pie
-            data={chartData}
+            data={top5}
+            dataKey="total"
+            nameKey="category"
             cx="50%"
             cy="50%"
-            labelLine={false}
-            label={renderCustomizedLabel}
-            outerRadius={90}
-            innerRadius={40}
-            dataKey="value"
+            innerRadius={55}
+            outerRadius={85}
+            paddingAngle={3}
           >
-            {chartData.map((entry, index) => (
-              <Cell key={`cell-${index}`} fill={entry.color} />
+            {top5.map((_, index) => (
+              <Cell key={index} fill={COLORS[index % COLORS.length]} />
             ))}
           </Pie>
           <Tooltip
-            formatter={(value: number) => [formatCurrency(value), 'Total']}
-            contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb' }}
+            formatter={(value: number) => formatCurrency(value)}
+            contentStyle={{ borderRadius: '12px', border: '1px solid #e5e7eb', fontSize: 13 }}
           />
         </PieChart>
       </ResponsiveContainer>
 
       {/* Legend */}
       <div className="mt-4 space-y-2">
-        {data.slice(0, 5).map((item) => (
-          <div key={item.category} className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full flex-shrink-0" style={{ backgroundColor: item.color }} />
-              <span className="text-sm text-gray-600">
-                {item.icon} {item.label}
+        {top5.map((item, index) => {
+          const cat = CATEGORIES[item.category];
+          return (
+            <div key={item.category} className="flex items-center gap-2 text-sm">
+              <span
+                className="w-3 h-3 rounded-full flex-shrink-0"
+                style={{ background: COLORS[index % COLORS.length] }}
+              />
+              <span className="flex-1 text-gray-600 dark:text-gray-300 truncate">
+                {cat?.icon} {cat?.label}
+              </span>
+              <span className="font-medium text-gray-900 dark:text-white">
+                {formatCurrency(item.total)}
               </span>
             </div>
-            <div className="text-right">
-              <span className="text-sm font-semibold text-gray-900">{formatCurrency(item.total)}</span>
-              <span className="text-xs text-gray-400 ml-2">{item.percentage.toFixed(1)}%</span>
-            </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

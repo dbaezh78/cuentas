@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Receipt, BarChart3, Settings, X, TrendingUp } from 'lucide-react';
+import { LayoutDashboard, ArrowLeftRight, BarChart3, Settings, X, TrendingUp, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
@@ -9,8 +9,9 @@ interface SidebarProps {
 
 const navItems = [
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
-  { to: '/gastos', icon: Receipt, label: 'Gastos' },
+  { to: '/transacciones', icon: ArrowLeftRight, label: 'Transacciones' },
   { to: '/reportes', icon: BarChart3, label: 'Reportes' },
+  { to: '/ajustes', icon: Settings, label: 'Ajustes' },
 ];
 
 export default function Sidebar({ isOpen, onClose }: SidebarProps) {
@@ -20,20 +21,20 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
     <aside
       className={`
         fixed lg:static inset-y-0 left-0 z-30
-        w-64 bg-slate-900 text-white flex flex-col
+        w-64 bg-slate-900 dark:bg-gray-950 text-white flex flex-col
         transform transition-transform duration-300 ease-in-out
         ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}
     >
       {/* Logo */}
-      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700">
+      <div className="flex items-center justify-between px-6 py-5 border-b border-slate-700 dark:border-gray-800">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 bg-blue-500 rounded-xl flex items-center justify-center">
             <TrendingUp size={20} className="text-white" />
           </div>
           <div>
             <h1 className="font-bold text-lg leading-tight">Mis Cuentas</h1>
-            <p className="text-slate-400 text-xs">Control de gastos</p>
+            <p className="text-slate-400 text-xs">Control financiero</p>
           </div>
         </div>
         <button
@@ -67,7 +68,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
       </nav>
 
       {/* User section */}
-      <div className="px-4 py-4 border-t border-slate-700">
+      <div className="px-4 py-4 border-t border-slate-700 dark:border-gray-800">
         <div className="flex items-center gap-3 mb-3">
           {user?.photoURL ? (
             <img
@@ -91,7 +92,7 @@ export default function Sidebar({ isOpen, onClose }: SidebarProps) {
           onClick={logout}
           className="w-full flex items-center gap-2 px-3 py-2 text-sm text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
         >
-          <Settings size={16} />
+          <LogOut size={16} />
           Cerrar Sesión
         </button>
       </div>
