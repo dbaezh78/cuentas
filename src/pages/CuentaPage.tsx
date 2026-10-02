@@ -780,7 +780,8 @@ export default function CuentaPage() {
                       {account.isPublic && (
                         <button
                           onClick={() => {
-                            const publicUrl = `${window.location.origin}/#/reporte-publico/${user?.uid}/${account.id}`;
+                            const baseUrl = window.location.href.split('#')[0].replace(/\/$/, '');
+                            const publicUrl = `${baseUrl}/#/reporte-publico/${user?.uid}/${account.id}`;
                             navigator.clipboard.writeText(publicUrl);
                             alert(`¡Enlace copiado al portapapeles!\n\n${publicUrl}`);
                           }}
@@ -857,7 +858,8 @@ export default function CuentaPage() {
                       {account.isPublic ? (
                         <button
                           onClick={() => {
-                            const publicUrl = `${window.location.origin}/#/reporte-publico/${user?.uid}/personal`;
+                            const baseUrl = window.location.href.split('#')[0].replace(/\/$/, '');
+                            const publicUrl = `${baseUrl}/#/reporte-publico/${user?.uid}/personal`;
                             navigator.clipboard.writeText(publicUrl);
                             alert(`¡Enlace copiado al portapapeles!\n\n${publicUrl}`);
                           }}
