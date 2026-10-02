@@ -1,9 +1,9 @@
-import { useEffect, useState, useMemo, useCallback } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, getDocs, arrayUnion } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, Eye, CheckCircle2, AlertCircle, Building2, TrendingUp, TrendingDown, DollarSign, Calendar, ShieldCheck, RefreshCw, User, Moon, Sun } from 'lucide-react';
+import { Lock, Eye, CheckCircle2, AlertCircle, Building2, TrendingUp, TrendingDown, DollarSign, Calendar, ShieldCheck, RefreshCw, User, Moon, Sun, Printer, ChevronDown, ChevronRight } from 'lucide-react';
 import type { Account, Transaction, AccountViewer } from '../types';
 
 export default function PublicReportPage() {
@@ -17,8 +17,15 @@ export default function PublicReportPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Theme mode (Dark by default, user can toggle to Light)
-  const [isDarkMode, setIsDarkMode] = useState(true);
+  // Expanded nested details state
+  const [expandedRows, setExpandedRows] = useState<Record<string, boolean>>({});
+
+  const toggleRowExpanded = (id: string) => {
+    setExpandedRows(prev => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  // Theme mode (Light by default, user can toggle to Dark)
+  const [isDarkMode, setIsDarkMode] = useState(false);
   const toggleTheme = () => setIsDarkMode(prev => !prev);
 
   // Password verification state
@@ -182,6 +189,15 @@ export default function PublicReportPage() {
       }
 
       setTransactions(txList);
+
+      // Auto expand rows with nested details by default
+      const initialExpanded: Record<string, boolean> = {};
+      txList.forEach(t => {
+        if (t.details && t.details.length > 0) {
+          initialExpanded[t.id] = true;
+        }
+      });
+      setExpandedRows(initialExpanded);
 
       // Record viewer if user is logged in
       if (!isManualRefresh && user && user.email) {
@@ -384,13 +400,34 @@ export default function PublicReportPage() {
     );
   }
 
+  const handlePrint = () => {
+    window.print();
+  };
+
   // Unlocked Public Report Dashboard View
   return (
     <div className={`min-h-screen p-4 sm:p-8 transition-colors ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
+      <style>{`
+        @media print {
+          body {
+            background-color: white !important;
+            color: black !important;
+          }
+          .no-print {
+            display: none !important;
+          }
+          .print-card {
+            border: 1px solid #e2e8f0 !important;
+            background: white !important;
+            box-shadow: none !important;
+          }
+        }
+      `}</style>
+
       <div className="max-w-5xl mx-auto space-y-8">
 
         {/* Top Header Card */}
-        <div className={`border rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors ${
+        <div className={`border rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors print-card ${
           isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'
         }`}>
           <div className="flex items-center gap-4">
@@ -400,7 +437,7 @@ export default function PublicReportPage() {
             <div>
               <div className="flex items-center gap-2 flex-wrap">
                 <h1 className={`text-2xl sm:text-3xl font-extrabold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>{account.razonSocial}</h1>
-                <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1">
+                <span className="bg-emerald-500/10 border border-emerald-500/30 text-emerald-600 dark:text-emerald-400 text-xs px-2.5 py-1 rounded-full font-semibold flex items-center gap-1 no-print">
                   <CheckCircle2 size={12} /> Reporte Público
                 </span>
               </div>
@@ -411,7 +448,7 @@ export default function PublicReportPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3 self-end md:self-auto flex-wrap">
+          <div className="flex items-center gap-3 self-end md:self-auto flex-wrap no-print">
             {/* Month Filter Selector */}
             <div className="flex items-center gap-2">
               <span className={`text-xs font-semibold ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Filtrar Mes:</span>
@@ -432,6 +469,20 @@ export default function PublicReportPage() {
                 ))}
               </select>
             </div>
+
+            {/* Print Icon Button */}
+            <button
+              onClick={handlePrint}
+              className={`p-2.5 rounded-xl border transition-colors flex items-center gap-2 text-xs font-semibold ${
+                isDarkMode
+                  ? 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+                  : 'bg-gray-100 border-gray-200 text-gray-700 hover:bg-gray-200'
+              }`}
+              title="Imprimir Reporte"
+            >
+              <Printer size={15} className="text-indigo-500" />
+              <span>Imprimir</span>
+            </button>
 
             {/* Dark/Light Theme Switcher Button */}
             <button
@@ -474,7 +525,7 @@ export default function PublicReportPage() {
 
         {/* Financial Overview Cards */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className={`border rounded-2xl p-5 shadow-lg ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+          <div className={`border rounded-2xl p-5 shadow-lg print-card ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Total Ingresos</span>
               <div className="p-2 bg-emerald-500/10 text-emerald-500 rounded-xl">
@@ -489,7 +540,7 @@ export default function PublicReportPage() {
             </p>
           </div>
 
-          <div className={`border rounded-2xl p-5 shadow-lg ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+          <div className={`border rounded-2xl p-5 shadow-lg print-card ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Total Gastos</span>
               <div className="p-2 bg-rose-500/10 text-rose-500 rounded-xl">
@@ -504,7 +555,7 @@ export default function PublicReportPage() {
             </p>
           </div>
 
-          <div className={`border rounded-2xl p-5 shadow-lg ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+          <div className={`border rounded-2xl p-5 shadow-lg print-card ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
             <div className="flex items-center justify-between mb-2">
               <span className={`text-xs font-semibold uppercase tracking-wider ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>Balance Neto</span>
               <div className="p-2 bg-indigo-500/10 text-indigo-500 rounded-xl">
@@ -521,7 +572,7 @@ export default function PublicReportPage() {
         </div>
 
         {/* Transactions Table */}
-        <div className={`border rounded-3xl p-6 shadow-2xl space-y-4 ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
+        <div className={`border rounded-3xl p-6 shadow-2xl space-y-4 print-card ${isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'}`}>
           <div className={`flex items-center justify-between pb-4 border-b flex-wrap gap-2 ${isDarkMode ? 'border-slate-800' : 'border-gray-200'}`}>
             <div>
               <h3 className={`text-lg font-bold ${isDarkMode ? 'text-white' : 'text-gray-900'}`}>Detalle de Transacciones</h3>
@@ -531,7 +582,7 @@ export default function PublicReportPage() {
             </div>
             <button
               onClick={() => loadPublicData(true)}
-              className="text-xs text-indigo-500 hover:underline flex items-center gap-1 font-medium"
+              className="text-xs text-indigo-500 hover:underline flex items-center gap-1 font-medium no-print"
             >
               <RefreshCw size={12} /> Refrescar lista
             </button>
@@ -548,6 +599,7 @@ export default function PublicReportPage() {
                   isDarkMode ? 'bg-slate-950 text-slate-400 border-slate-800' : 'bg-gray-50 text-gray-600 border-gray-200'
                 }`}>
                   <tr>
+                    <th className="py-3 px-2 w-8"></th>
                     <th className="py-3 px-4">Fecha</th>
                     <th className="py-3 px-4">Descripción</th>
                     <th className="py-3 px-4">Categoría</th>
@@ -556,29 +608,71 @@ export default function PublicReportPage() {
                   </tr>
                 </thead>
                 <tbody className={`divide-y font-mono ${isDarkMode ? 'divide-slate-800/60' : 'divide-gray-100'}`}>
-                  {filteredTransactions.map(t => (
-                    <tr key={t.id} className={`transition-colors ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50'}`}>
-                      <td className={`py-3 px-4 flex items-center gap-1.5 whitespace-nowrap ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
-                        <Calendar size={13} /> {t.date}
-                      </td>
-                      <td className={`py-3 px-4 font-sans font-medium ${isDarkMode ? 'text-slate-100' : 'text-gray-900'}`}>{t.description}</td>
-                      <td className={`py-3 px-4 capitalize ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{t.category}</td>
-                      <td className="py-3 px-4">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans uppercase ${
-                          t.type === 'income'
-                            ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
-                            : 'bg-rose-500/10 text-rose-500 border border-rose-500/30'
-                        }`}>
-                          {t.type === 'income' ? 'Ingreso' : 'Gasto'}
-                        </span>
-                      </td>
-                      <td className={`py-3 px-4 text-right font-bold text-sm whitespace-nowrap ${
-                        t.type === 'income' ? 'text-emerald-500' : (isDarkMode ? 'text-slate-200' : 'text-gray-900')
-                      }`}>
-                        {t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
-                      </td>
-                    </tr>
-                  ))}
+                  {filteredTransactions.map(t => {
+                    const hasDetails = Array.isArray(t.details) && t.details.length > 0;
+                    const isExpanded = expandedRows[t.id];
+
+                    return (
+                      <React.Fragment key={t.id}>
+                        <tr
+                          onClick={() => hasDetails && toggleRowExpanded(t.id)}
+                          className={`transition-colors ${hasDetails ? 'cursor-pointer' : ''} ${isDarkMode ? 'hover:bg-slate-800/40' : 'hover:bg-gray-50'}`}
+                        >
+                          <td className="py-3 px-2 text-center">
+                            {hasDetails && (
+                              <button
+                                onClick={(e) => { e.stopPropagation(); toggleRowExpanded(t.id); }}
+                                className={`p-1 rounded transition-colors ${isDarkMode ? 'text-slate-400 hover:text-white' : 'text-gray-400 hover:text-gray-700'}`}
+                              >
+                                {isExpanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+                              </button>
+                            )}
+                          </td>
+                          <td className={`py-3 px-4 whitespace-nowrap ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                            <span className="inline-flex items-center gap-1.5"><Calendar size={13} /> {t.date}</span>
+                          </td>
+                          <td className={`py-3 px-4 font-sans font-medium ${isDarkMode ? 'text-slate-100' : 'text-gray-900'}`}>{t.description}</td>
+                          <td className={`py-3 px-4 capitalize ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{t.category}</td>
+                          <td className="py-3 px-4">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans uppercase ${
+                              t.type === 'income'
+                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/30'
+                                : 'bg-rose-500/10 text-rose-500 border border-rose-500/30'
+                            }`}>
+                              {t.type === 'income' ? 'Ingreso' : 'Gasto'}
+                            </span>
+                          </td>
+                          <td className={`py-3 px-4 text-right font-bold text-sm whitespace-nowrap ${
+                            t.type === 'income' ? 'text-emerald-500' : (isDarkMode ? 'text-slate-200' : 'text-gray-900')
+                          }`}>
+                            {t.type === 'income' ? '+' : '-'}${t.amount.toLocaleString('es-DO', { minimumFractionDigits: 2 })}
+                          </td>
+                        </tr>
+
+                        {/* Sub-table / Nested details view */}
+                        {hasDetails && isExpanded && (
+                          <tr className={isDarkMode ? 'bg-slate-950/80' : 'bg-gray-50/80'}>
+                            <td></td>
+                            <td colSpan={5} className="py-3 px-4">
+                              <div className={`p-3 rounded-xl border ${isDarkMode ? 'bg-slate-900/90 border-slate-800' : 'bg-white border-gray-200 shadow-sm'}`}>
+                                <p className={`text-[11px] font-bold uppercase tracking-wider mb-2 font-sans ${isDarkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+                                  Desglose de registro ({t.details?.length} sub-ítems)
+                                </p>
+                                <div className="space-y-1.5">
+                                  {t.details?.map((sub, idx) => (
+                                    <div key={idx} className={`flex items-center justify-between text-xs font-sans pb-1.5 border-b last:border-b-0 ${isDarkMode ? 'border-slate-800 text-slate-300' : 'border-gray-100 text-gray-700'}`}>
+                                      <span className="font-medium">• {sub.detalle}</span>
+                                      <span className="font-mono font-semibold">${Number(sub.valor).toLocaleString('es-DO', { minimumFractionDigits: 2 })}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>

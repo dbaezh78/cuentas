@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash, FileText, ChevronDown, ChevronUp, Users, ShieldAlert, Download, AlertTriangle } from 'lucide-react';
+import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash, FileText, Users, ShieldAlert, Download, AlertTriangle, Share2 } from 'lucide-react';
 import { useAccounts } from '../contexts/AccountsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -349,7 +349,7 @@ function UserBalancesOverview() {
   );
 }
 
-import { Share2, Lock, Eye, Copy } from 'lucide-react';
+import { Lock, Eye, Copy } from 'lucide-react';
 
 interface AccountFormProps {
   initial?: AccountFormData;
@@ -646,37 +646,66 @@ export default function CuentaPage() {
             >
               {/* Card header */}
               <div className="flex items-center gap-4 p-5">
-                <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
-                  isPersonal ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-purple-100 dark:bg-purple-900/40'
-                }`}>
-                  {isPersonal
-                    ? <User size={22} className="text-blue-600 dark:text-blue-400" />
-                    : <Building2 size={22} className="text-purple-600 dark:text-purple-400" />
-                  }
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <p className="font-semibold text-gray-900 dark:text-white truncate">
-                      {account.razonSocial || (isPersonal ? 'Personal' : 'Sin nombre')}
-                    </p>
-                    {isActive && (
-                      <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
-                        Activa
-                      </span>
-                    )}
-                    {isPersonal && (
-                      <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full flex-shrink-0">
-                        Personal
-                      </span>
-                    )}
+                {/* Clickable Icon and Name area to expand/collapse details */}
+                <div
+                  onClick={() => !isPersonal && setExpanded(isExpanded ? null : account.id)}
+                  className={`flex items-center gap-4 flex-1 min-w-0 ${!isPersonal ? 'cursor-pointer hover:opacity-80 transition-opacity' : ''}`}
+                  title={!isPersonal ? (isExpanded ? 'Ocultar detalles' : 'Ver detalles completos') : undefined}
+                >
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center flex-shrink-0 ${
+                    isPersonal ? 'bg-blue-100 dark:bg-blue-900/40' : 'bg-purple-100 dark:bg-purple-900/40'
+                  }`}>
+                    {isPersonal
+                      ? <User size={22} className="text-blue-600 dark:text-blue-400" />
+                      : <Building2 size={22} className="text-purple-600 dark:text-purple-400" />
+                    }
                   </div>
-                  <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
-                    {isPersonal ? user?.email : (account.correo || account.rnc || 'Sin datos')}
-                  </p>
+
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900 dark:text-white truncate">
+                        {account.razonSocial || (isPersonal ? 'Personal' : 'Sin nombre')}
+                      </p>
+                      {isActive && (
+                        <span className="text-xs bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-medium flex-shrink-0">
+                          Activa
+                        </span>
+                      )}
+                      {isPersonal && (
+                        <span className="text-xs bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 px-2 py-0.5 rounded-full flex-shrink-0">
+                          Personal
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 truncate mt-0.5">
+                      {isPersonal ? user?.email : (account.correo || account.rnc || 'Sin datos')}
+                    </p>
+                  </div>
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Copy Public Link Icon Button (or open config if not created) */}
+                  <button
+                    onClick={() => {
+                      if (account.isPublic) {
+                        const baseUrl = window.location.href.split('#')[0].replace(/\/$/, '');
+                        const publicUrl = `${baseUrl}/#/reporte-publico/${user?.uid}/${account.id}`;
+                        navigator.clipboard.writeText(publicUrl);
+                        alert(`¡Enlace copiado al portapapeles!\n\n${publicUrl}`);
+                      } else {
+                        setEditAccount(account);
+                      }
+                    }}
+                    className={`p-2 rounded-lg border transition-colors ${
+                      account.isPublic
+                        ? 'text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-800 bg-indigo-50 dark:bg-indigo-900/30 hover:bg-indigo-100'
+                        : 'text-gray-400 dark:text-gray-500 border-gray-200 dark:border-gray-700 hover:text-indigo-600 hover:bg-gray-100 dark:hover:bg-gray-700'
+                    }`}
+                    title={account.isPublic ? 'Copiar enlace público del reporte' : 'Configurar y habilitar reporte público'}
+                  >
+                    <Share2 size={16} />
+                  </button>
+
                   {/* Download CSV button for business accounts */}
                   {!isPersonal && (
                     <button
@@ -686,17 +715,6 @@ export default function CuentaPage() {
                     >
                       <Download size={15} />
                       <span className="hidden md:inline">Descargar Excel/CSV</span>
-                    </button>
-                  )}
-
-                  {/* Expand/collapse details */}
-                  {!isPersonal && (
-                    <button
-                      onClick={() => setExpanded(isExpanded ? null : account.id)}
-                      className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg"
-                      title="Ver detalles"
-                    >
-                      {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
                   )}
                   {/* Edit button for personal account as well */}
