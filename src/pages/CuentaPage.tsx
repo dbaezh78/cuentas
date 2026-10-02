@@ -218,7 +218,7 @@ function UserBalancesOverview() {
   };
 
   return (
-    <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm space-y-4">
+    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-6 shadow-sm space-y-4">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
           <Users size={20} className="text-indigo-600 dark:text-indigo-400" />
@@ -253,7 +253,7 @@ function UserBalancesOverview() {
       ) : (
         <div className="space-y-4">
           {userOverviews.map(u => (
-            <div key={u.userId} className="border border-gray-100 dark:border-gray-700 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-750">
+            <div key={u.userId} className="border border-gray-100 dark:border-gray-700 rounded-xl p-4 bg-gray-50/50 dark:bg-slate-900/80">
               <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <User size={18} className="text-blue-500" />
@@ -273,7 +273,7 @@ function UserBalancesOverview() {
                 <div className="flex items-center gap-4">
                   {/* Limit & Deadline control */}
                   <div className="text-right border-r border-gray-200 dark:border-gray-700 pr-4">
-                    <span className="text-xs text-gray-400 block">Límite & Plazo Regulación</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-300 block font-medium">Límite & Plazo Regulación</span>
                     {editingLimitUserId === u.userId ? (
                       <div className="flex items-center gap-2 mt-1 flex-wrap justify-end">
                         <div className="flex items-center gap-1">
@@ -312,7 +312,7 @@ function UserBalancesOverview() {
                     ) : (
                       <div className="flex items-center gap-1.5 justify-end">
                         <div>
-                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
+                          <span className="text-sm font-semibold text-gray-800 dark:text-gray-100 block">
                             {u.maxCompanies} empresas
                           </span>
                           {u.deadlineDate && (
@@ -337,7 +337,7 @@ function UserBalancesOverview() {
                   </div>
 
                   <div className="text-right">
-                    <span className="text-xs text-gray-400 block">Balance Personal</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-300 block font-medium">Balance Personal</span>
                     <span className={`text-sm font-bold ${u.personalBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
                       {formatCurrency(u.personalBalance)}
                     </span>
@@ -354,7 +354,7 @@ function UserBalancesOverview() {
                   <p className="text-xs text-gray-400 italic">Sin empresas registradas.</p>
                 ) : (
                   u.businesses.map(b => (
-                    <div key={b.id} className="flex items-center justify-between bg-white dark:bg-gray-800 p-2.5 rounded-lg border border-gray-100 dark:border-gray-700">
+                    <div key={b.id} className="flex items-center justify-between bg-white dark:bg-slate-950/70 p-2.5 rounded-lg border border-gray-100 dark:border-gray-800">
                       <div className="flex items-center gap-2">
                         <Building2 size={16} className="text-purple-500" />
                         <div>
@@ -688,10 +688,10 @@ export default function CuentaPage() {
           return (
             <div
               key={account.id}
-              className={`bg-white dark:bg-gray-800 rounded-2xl border-2 shadow-sm transition-all ${
+              className={`bg-white dark:bg-slate-900 rounded-2xl border-2 shadow-sm transition-all ${
                 isActive
                   ? 'border-indigo-400 dark:border-indigo-500 shadow-indigo-100 dark:shadow-indigo-900/20'
-                  : 'border-gray-100 dark:border-gray-700'
+                  : 'border-gray-100 dark:border-slate-800'
               }`}
             >
               {/* Card header */}
@@ -873,7 +873,7 @@ export default function CuentaPage() {
                       }, []);
 
                       return (
-                        <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
+                        <div className="bg-gray-50 dark:bg-slate-950/70 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-slate-800">
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                             <Eye size={14} className="text-indigo-500" />
                             <span>Personas que han visto este reporte ({uniqueViewers.length})</span>
@@ -883,7 +883,7 @@ export default function CuentaPage() {
                           ) : (
                             <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
                               {uniqueViewers.map((v, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-slate-900 p-2 rounded-lg border border-gray-100 dark:border-slate-800">
                                   <div>
                                     <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
                                     <p className="text-[10px] text-gray-400">{v.email}</p>
@@ -970,7 +970,7 @@ export default function CuentaPage() {
                       }, []);
 
                       return (
-                        <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
+                        <div className="bg-gray-50 dark:bg-slate-950/70 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-slate-800">
                           <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
                             <Eye size={14} className="text-indigo-500" />
                             <span>Personas que han visto tu reporte personal ({uniqueViewers.length})</span>
@@ -980,7 +980,7 @@ export default function CuentaPage() {
                           ) : (
                             <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
                               {uniqueViewers.map((v, idx) => (
-                                <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-slate-900 p-2 rounded-lg border border-gray-100 dark:border-slate-800">
                                   <div>
                                     <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
                                     <p className="text-[10px] text-gray-400">{v.email}</p>

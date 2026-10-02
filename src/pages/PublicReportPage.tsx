@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
-import { Lock, Eye, CheckCircle2, AlertCircle, Building2, TrendingUp, TrendingDown, DollarSign, Calendar, ShieldCheck, RefreshCw, User, Moon, Sun, Printer, ChevronDown, ChevronRight } from 'lucide-react';
+import { Lock, Eye, CheckCircle2, AlertCircle, Building2, TrendingUp, TrendingDown, DollarSign, Calendar, ShieldCheck, RefreshCw, User, Moon, Sun, Printer, ChevronDown, ChevronRight, Home } from 'lucide-react';
 import type { Account, Transaction, AccountViewer, CustomCategory } from '../types';
 import { getCategoryConfig } from '../lib/utils';
 
@@ -514,6 +514,20 @@ export default function PublicReportPage() {
                 ))}
               </select>
             </div>
+
+            {/* Go to Home Button */}
+            <button
+              onClick={() => navigate('/')}
+              className={`p-2.5 rounded-xl border transition-colors flex items-center gap-2 text-xs font-semibold ${
+                isDarkMode
+                  ? 'bg-indigo-900/40 border-indigo-700 text-indigo-200 hover:bg-indigo-800/50'
+                  : 'bg-indigo-50 border-indigo-200 text-indigo-700 hover:bg-indigo-100'
+              }`}
+              title="Ir al inicio / Dashboard"
+            >
+              <Home size={15} className="text-indigo-500" />
+              <span>Inicio</span>
+            </button>
 
             {/* Print Icon Button */}
             <button
