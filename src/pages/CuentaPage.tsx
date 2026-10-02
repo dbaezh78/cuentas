@@ -3,7 +3,7 @@ import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash
 import { useAccounts } from '../contexts/AccountsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { setDoc } from 'firebase/firestore';
+import { setDoc, deleteDoc } from 'firebase/firestore';
 import { db, collection, getDocs, doc, getAccountTransactionsRef } from '../lib/firebase';
 import { exportToCSV } from '../lib/utils';
 import type { Account, Transaction, AccountViewer } from '../types';
@@ -26,6 +26,8 @@ interface UserAccountOverview {
     razonSocial: string;
     rnc: string;
     balance: number;
+    lastMovement: string | null;
+    transactionCount: number;
   }[];
 }
 
@@ -70,6 +72,31 @@ function UserBalancesOverview() {
   // Strictly check if logged-in user is dbaezh78@gmail.com
   const isAdmin = user?.email?.toLowerCase() === 'dbaezh78@gmail.com';
 
+  const handleDeleteAccountAsAdmin = async (targetUserId: string, accountId: string, accountName: string) => {
+    if (!confirm(`¿Estás seguro de eliminar la cuenta/empresa "${accountName}"? Esta acción eliminará permanentemente la empresa y todas sus transacciones.`)) {
+      return;
+    }
+
+    try {
+      // 1. Delete all transactions of the account
+      const txRef = collection(db, 'users', targetUserId, 'accounts', accountId, 'transactions');
+      const txSnap = await getDocs(txRef);
+      await Promise.all(txSnap.docs.map(d => deleteDoc(doc(db, 'users', targetUserId, 'accounts', accountId, 'transactions', d.id))));
+
+      // 2. Delete the account document
+      await deleteDoc(doc(db, 'users', targetUserId, 'accounts', accountId));
+
+      alert(`La empresa "${accountName}" ha sido eliminada exitosamente.`);
+      await loadAllUsersData();
+      if (targetUserId === user?.uid) {
+        refetch();
+      }
+    } catch (err) {
+      console.error('Error deleting account as admin:', err);
+      alert('Error al eliminar la cuenta. Verifica los permisos de Firestore.');
+    }
+  };
+
   const loadAllUsersData = async () => {
     if (!isAdmin) return;
     try {
@@ -110,13 +137,22 @@ function UserBalancesOverview() {
           for (const accDoc of accountsSnap.docs) {
             const accData = accDoc.data();
             let bBalance = 0;
+            let latestDate: string | null = null;
+            let count = 0;
+
             try {
               const bTxSnap = await getDocs(collection(db, 'users', userId, 'accounts', accDoc.id, 'transactions'));
+              count = bTxSnap.size;
               bTxSnap.forEach(d => {
                 const data = d.data();
                 const amt = Number(data.amount) || 0;
                 if (data.type === 'income') bBalance += amt;
                 else bBalance -= amt;
+
+                const txDate = String(data.date || '');
+                if (txDate && (!latestDate || txDate > latestDate)) {
+                  latestDate = txDate;
+                }
               });
             } catch {
               // Subcollection restricted
@@ -126,6 +162,8 @@ function UserBalancesOverview() {
               razonSocial: accData.razonSocial || 'Empresa sin nombre',
               rnc: accData.rnc || '',
               balance: bBalance,
+              lastMovement: latestDate,
+              transactionCount: count,
             });
           }
         } catch {
@@ -325,9 +363,14 @@ function UserBalancesOverview() {
                         </div>
                       </div>
                       <div className="flex items-center gap-3">
-                        <span className={`text-xs font-semibold ${b.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {formatCurrency(b.balance)}
-                        </span>
+                        <div className="text-right">
+                          <span className={`text-xs font-semibold block ${b.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                            {formatCurrency(b.balance)}
+                          </span>
+                          <span className="text-[10px] text-gray-400 block">
+                            {b.lastMovement ? `Último mov: ${b.lastMovement}` : 'Sin movimientos'}
+                          </span>
+                        </div>
                         <button
                           onClick={() => handleDownloadAccountCSV(u.userId, b.id, b.razonSocial, customCategories)}
                           className="flex items-center gap-1 text-[11px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40 px-2 py-1 rounded font-medium transition-colors"
@@ -335,6 +378,13 @@ function UserBalancesOverview() {
                         >
                           <Download size={12} />
                           Descargar CSV
+                        </button>
+                        <button
+                          onClick={() => handleDeleteAccountAsAdmin(u.userId, b.id, b.razonSocial)}
+                          className="p-1.5 text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg transition-colors"
+                          title={`Eliminar empresa "${b.razonSocial}" como administrador`}
+                        >
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </div>
