@@ -120,36 +120,41 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
+    if (!user) {
+      setBusinessAccounts([]);
+      setLoading(false);
+      return;
+    }
+
+    // Single fetch for business accounts + single snapshot for user configuration to minimize Firebase read quota consumption
     fetchAccounts();
 
-    if (!user) return;
-    // Real-time listener on user doc so limit & personal share update instantly across all active sessions & refreshes
     const userDocRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userDocRef, (snap) => {
       if (snap.exists()) {
         const uData = snap.data();
-        if (typeof uData.maxCompanies === 'number') {
-          setMaxCompanies(uData.maxCompanies);
-        } else {
-          setMaxCompanies(2);
-        }
-        if (uData.deadlineDate) {
-          setDeadlineDate(String(uData.deadlineDate));
-        } else {
-          setDeadlineDate(null);
-        }
-        setPersonalAccountShare({
-          isPublic: Boolean(uData.isPersonalPublic),
-          sharePassword: uData.personalSharePassword || '',
-          publicShareExpiresAt: uData.personalPublicShareExpiresAt || '',
-          viewers: Array.isArray(uData.personalViewers) ? uData.personalViewers : [],
+        setMaxCompanies(typeof uData.maxCompanies === 'number' ? uData.maxCompanies : 2);
+        setDeadlineDate(uData.deadlineDate ? String(uData.deadlineDate) : null);
+        setPersonalAccountShare(prev => {
+          const isPublic = Boolean(uData.isPersonalPublic);
+          const sharePassword = uData.personalSharePassword || '';
+          const publicShareExpiresAt = uData.personalPublicShareExpiresAt || '';
+          const viewers = Array.isArray(uData.personalViewers) ? uData.personalViewers : [];
+          if (
+            prev.isPublic === isPublic &&
+            prev.sharePassword === sharePassword &&
+            prev.publicShareExpiresAt === publicShareExpiresAt &&
+            prev.viewers?.length === viewers.length
+          ) {
+            return prev;
+          }
+          return { isPublic, sharePassword, publicShareExpiresAt, viewers };
         });
-        addLog('REALTIME', 'Sincronización en vivo recibida', `Límite: ${uData.maxCompanies || 2}, Compartido Personal: ${Boolean(uData.isPersonalPublic)}`);
       }
     });
 
     return () => unsubscribe();
-  }, [user, fetchAccounts]);
+  }, [user]);
 
   const setActiveAccountId = (id: string) => {
     setActiveAccountIdState(id);
