@@ -22,15 +22,36 @@ export default function DashboardPage() {
   const [showForm, setShowForm] = useState(false);
 
   const currentMonth = getCurrentMonth();
-  const months = getLast6Months();
+
+  // ALL months from data — needed to get correct cumulative running balance
+  const allMonths = useMemo(() => {
+    const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    return [...set].sort();
+  }, [transactions]);
+
+  // Last 6 months — for the chart display only
+  const last6Months = getLast6Months();
 
   const currentMonthTransactions = useMemo(
     () => transactions.filter((t) => t.date.startsWith(currentMonth)),
     [transactions, currentMonth]
   );
 
-  const monthlyTotals = useMemo(() => calculateMonthlyTotals(transactions, months), [transactions, months]);
-  const currentMonthTotal = monthlyTotals.find(m => m.month === currentMonth);
+  // Calculate using ALL months so the running balance is historically accurate
+  const allMonthlyTotals = useMemo(
+    () => calculateMonthlyTotals(transactions, allMonths),
+    [transactions, allMonths]
+  );
+
+  // Calculate using last 6 months for the chart
+  const chartMonthlyTotals = useMemo(
+    () => calculateMonthlyTotals(transactions, last6Months),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [transactions]
+  );
+
+  // Current month total comes from ALL-months calculation (correct cumulative balance)
+  const currentMonthTotal = allMonthlyTotals.find(m => m.month === currentMonth);
 
   const expenseTotals = useMemo(
     () => calculateCategoryTotals(currentMonthTransactions.filter(t => t.type === 'expense')),
@@ -82,7 +103,7 @@ export default function DashboardPage() {
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <CategoryChart data={expenseTotals} />
-        <MonthlyChart data={monthlyTotals} />
+        <MonthlyChart data={chartMonthlyTotals} />
       </div>
 
       {/* Recent Transactions */}

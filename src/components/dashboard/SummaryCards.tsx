@@ -9,13 +9,10 @@ interface SummaryCardsProps {
 
 export default function SummaryCards({ currentMonthTotal, transactionCount }: SummaryCardsProps) {
   const { formatCurrency } = useSettings();
-  const income = currentMonthTotal?.income || 0;
-  const expense = currentMonthTotal?.expense || 0;
-  const balance = currentMonthTotal?.balance || 0;
+  const income    = currentMonthTotal?.income    || 0;
+  const expense   = currentMonthTotal?.expense   || 0;
+  const balance   = currentMonthTotal?.balance   || 0;
   const carryover = currentMonthTotal?.carryover || 0;
-
-  // Total income including carryover from previous month
-  const totalIncome = income + carryover;
 
   const cards = [
     {
@@ -26,17 +23,15 @@ export default function SummaryCards({ currentMonthTotal, transactionCount }: Su
       iconBg: 'bg-blue-100 dark:bg-blue-900/40',
       iconColor: 'text-blue-600 dark:text-blue-400',
       textColor: balance >= 0 ? 'text-blue-700 dark:text-blue-300' : 'text-orange-600 dark:text-orange-400',
-      badge: null,
     },
     {
       title: 'Ingresos',
-      value: formatCurrency(totalIncome),
-      subtitle: carryover > 0 ? `RD$${income.toLocaleString('es-DO')} propios + arrastre` : 'Este mes',
+      value: formatCurrency(income),
+      subtitle: 'Este mes',
       icon: TrendingUp,
       iconBg: 'bg-green-100 dark:bg-green-900/40',
       iconColor: 'text-green-600 dark:text-green-400',
       textColor: 'text-gray-900 dark:text-white',
-      badge: carryover > 0 ? { label: `+${formatCurrency(carryover)} mes ant.`, color: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' } : null,
     },
     {
       title: 'Gastos',
@@ -46,7 +41,6 @@ export default function SummaryCards({ currentMonthTotal, transactionCount }: Su
       iconBg: 'bg-red-100 dark:bg-red-900/40',
       iconColor: 'text-red-600 dark:text-red-400',
       textColor: 'text-gray-900 dark:text-white',
-      badge: null,
     },
     {
       title: 'Transacciones',
@@ -56,18 +50,18 @@ export default function SummaryCards({ currentMonthTotal, transactionCount }: Su
       iconBg: 'bg-orange-100 dark:bg-orange-900/40',
       iconColor: 'text-orange-600 dark:text-orange-400',
       textColor: 'text-gray-900 dark:text-white',
-      badge: null,
     },
   ];
 
   return (
     <div className="space-y-3">
-      {/* Carryover banner — shown when previous month had positive balance */}
+      {/* Carryover banner — only when previous month had a positive balance */}
       {carryover > 0 && (
         <div className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-900/30 border border-emerald-200 dark:border-emerald-700 rounded-xl px-4 py-3">
           <ArrowDownLeft size={18} className="text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
           <p className="text-sm text-emerald-700 dark:text-emerald-300">
-            <span className="font-semibold">{formatCurrency(carryover)}</span> arrastrado del mes anterior como ingreso disponible
+            <span className="font-semibold">{formatCurrency(carryover)}</span> arrastrado del mes anterior —
+            {' '}Balance acumulado = Mes ant. + Ingresos − Gastos
           </p>
         </div>
       )}
@@ -79,11 +73,6 @@ export default function SummaryCards({ currentMonthTotal, transactionCount }: Su
               <div className={`p-2.5 rounded-xl ${card.iconBg}`}>
                 <card.icon size={20} className={card.iconColor} />
               </div>
-              {card.badge && (
-                <span className={`text-xs font-medium px-2 py-1 rounded-full ${card.badge.color}`}>
-                  {card.badge.label}
-                </span>
-              )}
             </div>
             <p className={`text-2xl font-bold mb-1 ${card.textColor}`}>{card.value}</p>
             <p className="text-sm text-gray-500 dark:text-gray-400">{card.title}</p>
