@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, ArrowLeftRight, BarChart3, BookOpen, Settings, X, TrendingUp, LogOut, Database } from 'lucide-react';
+import { UserCircle, LayoutDashboard, ArrowLeftRight, BarChart3, BookOpen, Settings, X, TrendingUp, LogOut, Database } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 interface SidebarProps {
@@ -8,6 +8,7 @@ interface SidebarProps {
 }
 
 const navItems = [
+  { to: '/cuenta', icon: UserCircle, label: 'Cuenta' },
   { to: '/', icon: LayoutDashboard, label: 'Dashboard', end: true },
   { to: '/transacciones', icon: ArrowLeftRight, label: 'Transacciones' },
   { to: '/reportes', icon: BarChart3, label: 'Reportes' },

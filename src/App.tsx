@@ -1,9 +1,11 @@
 import { HashRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { AccountsProvider } from './contexts/AccountsContext';
 import Layout from './components/layout/Layout';
 import LoginPage from './components/auth/LoginPage';
 import DashboardPage from './pages/DashboardPage';
+import CuentaPage from './pages/CuentaPage';
 import TransactionsPage from './pages/TransactionsPage';
 import ReportsPage from './pages/ReportsPage';
 import ContabilidadPage from './pages/ContabilidadPage';
@@ -37,6 +39,7 @@ function AppRoutes() {
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/" element={<DashboardPage />} />
+        <Route path="/cuenta" element={<CuentaPage />} />
         <Route path="/transacciones" element={<TransactionsPage />} />
         <Route path="/reportes" element={<ReportsPage />} />
         <Route path="/contabilidad" element={<ContabilidadPage />} />
@@ -52,9 +55,11 @@ export default function App() {
   return (
     <HashRouter>
       <AuthProvider>
-        <SettingsProvider>
-          <AppRoutes />
-        </SettingsProvider>
+        <AccountsProvider>
+          <SettingsProvider>
+            <AppRoutes />
+          </SettingsProvider>
+        </AccountsProvider>
       </AuthProvider>
     </HashRouter>
   );

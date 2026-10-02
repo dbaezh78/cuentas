@@ -52,4 +52,21 @@ export const getUserTransactionDocRef = (userId: string, transactionId: string) 
   return doc(db, 'users', userId, 'transactions', transactionId);
 };
 
+/** Returns the transactions ref for a specific account (personal uses root path for backward compat) */
+export const getAccountTransactionsRef = (userId: string, accountId: string) => {
+  if (accountId === 'personal') return collection(db, 'users', userId, 'transactions');
+  return collection(db, 'users', userId, 'accounts', accountId, 'transactions');
+};
+
+export const getAccountTransactionDocRef = (userId: string, accountId: string, txId: string) => {
+  if (accountId === 'personal') return doc(db, 'users', userId, 'transactions', txId);
+  return doc(db, 'users', userId, 'accounts', accountId, 'transactions', txId);
+};
+
+export const getUserAccountsRef = (userId: string) =>
+  collection(db, 'users', userId, 'accounts');
+
+export const getUserAccountDocRef = (userId: string, accountId: string) =>
+  doc(db, 'users', userId, 'accounts', accountId);
+
 export default app;

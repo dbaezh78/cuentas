@@ -9,38 +9,27 @@ import {
   collection,
   doc,
   serverTimestamp,
-  getUserTransactionsRef,
-  getUserTransactionDocRef,
+  getAccountTransactionsRef,
+  getAccountTransactionDocRef,
   db,
 } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
+import { useAccounts } from '../contexts/AccountsContext';
 import type { Transaction, TransactionFormData } from '../types';
 
 export function useTransactions() {
   const { user } = useAuth();
+  const { activeAccountId } = useAccounts();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const fetchTransactions = useCallback(async () => {
-    if (!user) {
-      setTransactions([]);
-      setLoading(false);
-      return;
-    }
+    if (!user) { setTransactions([]); setLoading(false); return; }
 
     try {
       setLoading(true);
       setError(null);
-
-      // Read from BOTH collections so old data (expenses) still shows
-      const oldRef = collection(db, 'users', user.uid, 'expenses');
-      const newRef = getUserTransactionsRef(user.uid);
-
-      const [oldSnap, newSnap] = await Promise.all([
-        getDocs(query(oldRef, orderBy('date', 'desc'))),
-        getDocs(query(newRef, orderBy('date', 'desc'))),
-      ]);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mapDoc = (docSnap: any, src: 'expenses' | 'transactions'): Transaction => {
@@ -58,31 +47,38 @@ export function useTransactions() {
         };
       };
 
-      const oldData = oldSnap.docs.map(d => mapDoc(d, 'expenses'));
-      const newData = newSnap.docs.map(d => mapDoc(d, 'transactions'));
-
-      // Merge, deduplicate by id, sort by date desc
-      const allById = new Map<string, Transaction>();
-      [...oldData, ...newData].forEach(t => allById.set(t.id, t));
-      const merged = Array.from(allById.values()).sort((a, b) => b.date.localeCompare(a.date));
-
-      setTransactions(merged);
+      if (activeAccountId === 'personal') {
+        // Personal: read from BOTH collections for backward compatibility
+        const oldRef = collection(db, 'users', user.uid, 'expenses');
+        const newRef = getAccountTransactionsRef(user.uid, 'personal');
+        const [oldSnap, newSnap] = await Promise.all([
+          getDocs(query(oldRef, orderBy('date', 'desc'))),
+          getDocs(query(newRef, orderBy('date', 'desc'))),
+        ]);
+        const oldData = oldSnap.docs.map(d => mapDoc(d, 'expenses'));
+        const newData = newSnap.docs.map(d => mapDoc(d, 'transactions'));
+        const allById = new Map<string, Transaction>();
+        [...oldData, ...newData].forEach(t => allById.set(t.id, t));
+        setTransactions(Array.from(allById.values()).sort((a, b) => b.date.localeCompare(a.date)));
+      } else {
+        // Business account: only read from its own transactions sub-collection
+        const ref = getAccountTransactionsRef(user.uid, activeAccountId);
+        const snap = await getDocs(query(ref, orderBy('date', 'desc')));
+        setTransactions(snap.docs.map(d => mapDoc(d, 'transactions')));
+      }
     } catch (err) {
       console.error('Error fetching transactions:', err);
       setError('Error al cargar las transacciones. Verifica tu conexión.');
     } finally {
       setLoading(false);
     }
-  }, [user]);
+  }, [user, activeAccountId]);
 
-  useEffect(() => {
-    fetchTransactions();
-  }, [fetchTransactions]);
+  useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
   const addTransaction = async (formData: TransactionFormData): Promise<void> => {
     if (!user) throw new Error('Not authenticated');
-
-    const ref = getUserTransactionsRef(user.uid);
+    const ref = getAccountTransactionsRef(user.uid, activeAccountId);
     const payload = {
       amount: typeof formData.amount === 'string' ? parseFloat(formData.amount) : formData.amount,
       category: formData.category,
@@ -93,27 +89,15 @@ export function useTransactions() {
       details: (formData.details || []).filter(d => d.detalle.trim()),
       createdAt: serverTimestamp(),
     };
-
     const docRef = await addDoc(ref, payload);
-
-    const optimistic: Transaction = {
-      id: docRef.id,
-      ...payload,
-      amount: payload.amount,
-      _sourceCollection: 'transactions',
-    };
-
-    setTransactions(prev =>
-      [optimistic, ...prev].sort((a, b) => b.date.localeCompare(a.date))
-    );
+    const optimistic: Transaction = { id: docRef.id, ...payload, amount: payload.amount, _sourceCollection: 'transactions' };
+    setTransactions(prev => [optimistic, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
   };
 
   const updateTransaction = async (id: string, formData: TransactionFormData): Promise<void> => {
     if (!user) throw new Error('Not authenticated');
-
     const existing = transactions.find(t => t.id === id);
     const src = existing?._sourceCollection || 'transactions';
-
     const payload = {
       amount: typeof formData.amount === 'string' ? parseFloat(formData.amount) : formData.amount,
       category: formData.category,
@@ -126,20 +110,17 @@ export function useTransactions() {
     };
 
     if (src === 'expenses') {
-      // Migrate: create in transactions collection, delete from expenses
-      const transRef = getUserTransactionsRef(user.uid);
+      // Migrate old expenses doc → new transactions path
+      const transRef = getAccountTransactionsRef(user.uid, activeAccountId);
       const oldRef = doc(db, 'users', user.uid, 'expenses', id);
       await addDoc(transRef, { ...payload, createdAt: serverTimestamp() });
       await deleteDoc(oldRef);
-      // Refetch to get accurate state
       await fetchTransactions();
       return;
     }
 
-    // Normal update in transactions collection
-    const ref = getUserTransactionDocRef(user.uid, id);
+    const ref = getAccountTransactionDocRef(user.uid, activeAccountId, id);
     await updateDoc(ref, payload);
-
     setTransactions(prev =>
       prev.map(t => t.id === id
         ? { ...t, ...formData, amount: payload.amount, details: payload.details, _sourceCollection: 'transactions' as const }
@@ -150,28 +131,15 @@ export function useTransactions() {
 
   const deleteTransaction = async (id: string): Promise<void> => {
     if (!user) throw new Error('Not authenticated');
-
     const existing = transactions.find(t => t.id === id);
     const src = existing?._sourceCollection || 'transactions';
-
     if (src === 'expenses') {
-      const expRef = doc(db, 'users', user.uid, 'expenses', id);
-      await deleteDoc(expRef);
+      await deleteDoc(doc(db, 'users', user.uid, 'expenses', id));
     } else {
-      const ref = getUserTransactionDocRef(user.uid, id);
-      await deleteDoc(ref);
+      await deleteDoc(getAccountTransactionDocRef(user.uid, activeAccountId, id));
     }
-
     setTransactions(prev => prev.filter(t => t.id !== id));
   };
 
-  return {
-    transactions,
-    loading,
-    error,
-    addTransaction,
-    updateTransaction,
-    deleteTransaction,
-    refetch: fetchTransactions,
-  };
+  return { transactions, loading, error, addTransaction, updateTransaction, deleteTransaction, refetch: fetchTransactions };
 }

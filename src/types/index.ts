@@ -5,6 +5,18 @@ export type CategoryKey =
 
 export type PaymentMethod = 'cash' | 'card' | 'transfer';
 export type TransactionType = 'income' | 'expense';
+export type AccountType = 'personal' | 'business';
+
+export interface Account {
+  id: string;
+  type: AccountType;
+  rnc: string;
+  razonSocial: string;
+  telefono: string;
+  direccion: string;
+  correo: string;
+  direccionWeb: string;
+}
 
 export interface TransactionDetail {
   detalle: string;
