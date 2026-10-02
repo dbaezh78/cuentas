@@ -1,13 +1,15 @@
 import { useState } from 'react';
-import { RefreshCw, Plus } from 'lucide-react';
+import { RefreshCw, Plus, Upload } from 'lucide-react';
 import { useTransactions } from '../hooks/useTransactions';
 import TransactionList from '../components/transactions/TransactionList';
 import TransactionForm from '../components/transactions/TransactionForm';
+import ImportModal from '../components/transactions/ImportModal';
 import type { Transaction, TransactionFormData } from '../types';
 
 export default function TransactionsPage() {
   const { transactions, loading, error, addTransaction, updateTransaction, deleteTransaction, refetch } = useTransactions();
   const [showForm, setShowForm] = useState(false);
+  const [showImport, setShowImport] = useState(false);
   const [editTransaction, setEditTransaction] = useState<Transaction | null>(null);
 
   const handleAdd = async (data: TransactionFormData) => {
@@ -32,6 +34,12 @@ export default function TransactionsPage() {
   const closeForm = () => {
     setShowForm(false);
     setEditTransaction(null);
+  };
+
+  const handleImport = async (rows: TransactionFormData[]) => {
+    for (const row of rows) {
+      await addTransaction(row);
+    }
   };
 
   if (loading) {
@@ -64,6 +72,14 @@ export default function TransactionsPage() {
             <RefreshCw size={18} />
           </button>
           <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 px-4 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-medium rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+            title="Importar CSV"
+          >
+            <Upload size={18} />
+            <span className="hidden sm:inline">Importar</span>
+          </button>
+          <button
             onClick={() => setShowForm(true)}
             className="flex items-center gap-2 px-4 py-2.5 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 transition-colors shadow-sm"
           >
@@ -90,6 +106,13 @@ export default function TransactionsPage() {
           onSubmit={editTransaction ? handleEdit : handleAdd}
           onClose={closeForm}
           editTransaction={editTransaction}
+        />
+      )}
+
+      {showImport && (
+        <ImportModal
+          onClose={() => { setShowImport(false); refetch(); }}
+          onImport={handleImport}
         />
       )}
     </div>

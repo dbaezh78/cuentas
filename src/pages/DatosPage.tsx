@@ -4,30 +4,23 @@ import { CATEGORIES } from '../lib/utils';
 import { useSettings } from '../contexts/SettingsContext';
 import type { TransactionType } from '../types';
 
-const EMOJI_LIST = [
-  // Finanzas
-  '💰','💵','💶','💷','💴','💳','🏧','📈','📉','💹','💱','💲','🪙','💸',
-  // Comida y bebida
-  '🍽️','🍔','🍕','🌮','🌯','🍜','🥗','🍣','🍰','☕','🍺','🥤','🧃','🛒',
-  // Transporte
-  '🚗','🚕','🚌','✈️','🚂','🛵','🚲','⛽','🚙','🏎️','🛳️','🚁',
-  // Salud y bienestar
-  '💊','🏥','🩺','💉','🧘','🏋️','🏃','🦷','👓','🩹',
-  // Hogar
-  '🏠','🏡','🛋️','🔧','💡','🛁','🪴','🏗️','🔑','🚿','🛏️',
-  // Entretenimiento
-  '🎬','🎮','🎵','🎲','🎭','📚','🎨','🎸','🎤','🎧','🎯','⚽','🏊',
-  // Trabajo y negocios
-  '💼','📊','💻','🖥️','📝','📋','✏️','🏢','📞','🖨️','🗂️',
-  // Familia y personas
-  '👨‍👩‍👧','🧸','🎒','📚','🎠','🐶','🐱','🐾',
-  // Varios
-  '📦','🎁','🤲','💝','🌐','⚡','📌','🔔','🌟','❤️','🔐','🏆','🗺','🕟',
-  //Lugares
-  '🏛','','🗽','💈','🎢','🌉','🏖️','☂',
-  //Religion
-  '⛪','🕌',
+const EMOJI_GROUPS: { label: string; emojis: string[] }[] = [
+  { label: '💰 Finanzas', emojis: ['💰','💵','💶','💷','💴','💳','🏧','📈','📉','💹','💱','💲','🪙','💸','🏦','📊','🤑','💎'] },
+  { label: '🍽️ Comida', emojis: ['🍽️','🍔','🍕','🌮','🌯','🍜','🥗','🍣','🍱','🧆','🍛','🥩','🍗','🍟','🌭','🥪','🍰','🎂','☕','🍺','🥤','🧃','🍷','🧋'] },
+  { label: '🚗 Transporte', emojis: ['🚗','🚕','🚌','✈️','🚂','🛵','🚲','⛽','🚙','🏎️','🛳️','🚁','🛻','🚐','⛵','🏍️','🚢'] },
+  { label: '💊 Salud', emojis: ['💊','🏥','🩺','💉','🧘','🏋️','🏃','🦷','👓','🩹','🩻','🧬','🩼','🏊','🚴','🧠','❤️‍🩹'] },
+  { label: '🏠 Hogar', emojis: ['🏠','🏡','🛋️','🔧','💡','🛁','🪴','🏗️','🔑','🚿','🛏️','🪑','🧹','🧺','🧼','🪟','🚪','🏘️','🏢','🏬'] },
+  { label: '🎬 Entretenimiento', emojis: ['🎬','🎮','🎵','🎲','🎭','📚','🎨','🎸','🎤','🎧','🎯','⚽','🏊','🎻','🥁','🎹','📺','📻','🎪','🎠','🃏'] },
+  { label: '💼 Trabajo', emojis: ['💼','📊','💻','🖥️','📝','📋','✏️','🏢','📞','🖨️','🗂️','📎','✂️','🖊️','📌','📐','🗓️','⌨️','🖱️'] },
+  { label: '🛒 Compras', emojis: ['🛒','👗','👠','👜','🛍️','👒','💄','📱','🧳','👔','👟','🧣','🧤','💍','🕶️','⌚','🎁','🧸','🪆'] },
+  { label: '👨‍👩‍👧 Familia', emojis: ['👨‍👩‍👧','🧸','🎒','🏫','🎠','🐶','🐱','🐾','🍼','👶','🎡','🎢','🪀','🎈','🪁','🎀'] },
+  { label: '🌍 Servicios', emojis: ['🌍','⚡','💧','🔥','📡','🌐','📶','🛡️','☁️','🔒','🔔','📬','🗺️','🌡️','🔆','📲','🔌','🔋'] },
+  { label: '🤝 Social', emojis: ['🤝','🤲','💝','🙏','❤️','⭐','🏆','🥇','🎖️','🏅','🎗️','👏','💪','🫂','🌹','🎊','🎉','🥂'] },
+  { label: '⛪ Religión', emojis: ['⛪','🕌','🛐','✝️','☪️','🕍','⛩️','🛕','🙏','📿','✨','🕯️'] },
+  { label: '🏛️ Lugares', emojis: ['🏛️','🗽','💈','🎢','🌉','🏖️','🏔️','🌋','🗼','🏟️','🎡','🗿','🌁','🏝️'] },
+  { label: '📦 Otros', emojis: ['📦','📌','🔑','⚙️','🔩','🧰','🪣','🗑️','📋','💼','🗝️','🔐','🧲','🪜','📍','🔖','🏷️','📫','🗃️'] },
 ];
+
 
 export default function DatosPage() {
   const { customCategories, addCustomCategory, deleteCustomCategory } = useSettings();
@@ -77,21 +70,26 @@ export default function DatosPage() {
             </div>
 
             {showPicker && (
-              <div className="mt-3 p-4 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600">
-                <div className="flex flex-wrap gap-2">
-                  {EMOJI_LIST.map((emoji) => (
-                    <button
-                      key={emoji}
-                      type="button"
-                      onClick={() => { setIcon(emoji); setShowPicker(false); }}
-                      className={`w-10 h-10 text-xl rounded-lg flex items-center justify-center hover:bg-white dark:hover:bg-gray-600 transition-colors ${
-                        icon === emoji ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500' : ''
-                      }`}
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
+              <div className="mt-3 bg-gray-50 dark:bg-gray-700 rounded-xl border border-gray-200 dark:border-gray-600 max-h-64 overflow-y-auto">
+                {EMOJI_GROUPS.map(group => (
+                  <div key={group.label} className="p-3 border-b border-gray-200 dark:border-gray-600 last:border-0">
+                    <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 mb-2">{group.label}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.emojis.map((emoji) => (
+                        <button
+                          key={emoji}
+                          type="button"
+                          onClick={() => { setIcon(emoji); setShowPicker(false); }}
+                          className={`w-9 h-9 text-xl rounded-lg flex items-center justify-center hover:bg-white dark:hover:bg-gray-600 transition-colors ${
+                            icon === emoji ? 'bg-blue-100 dark:bg-blue-900/50 ring-2 ring-blue-500' : ''
+                          }`}
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ))}
               </div>
             )}
           </div>

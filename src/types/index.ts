@@ -44,7 +44,8 @@ export interface MonthlyTotal {
   month: string;
   income: number;
   expense: number;
-  balance: number; // cumulative (carries over from previous month)
+  balance: number;    // cumulative (carries over from previous month)
+  carryover: number;  // balance brought forward from the previous month
 }
 
 export interface CategoryTotal {

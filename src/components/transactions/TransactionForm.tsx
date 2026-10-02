@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Save } from 'lucide-react';
 import { CATEGORIES, PAYMENT_METHODS, getCurrentDate, getCategoryConfig } from '../../lib/utils';
 import { useSettings } from '../../contexts/SettingsContext';
+import CategorySelect from './CategorySelect';
 import type { Transaction, TransactionFormData, PaymentMethod, TransactionType, TransactionDetail } from '../../types';
 
 interface DetailRow {
@@ -165,19 +166,11 @@ export default function TransactionForm({ onSubmit, onClose, editTransaction }: 
           {/* Category */}
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">Categoría *</label>
-            <select
-              name="category"
+            <CategorySelect
               value={form.category}
-              onChange={e => setForm(prev => ({ ...prev, category: e.target.value }))}
-              required
-              className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {availableCategories.map(([key, cat]) => (
-                <option key={key} value={key}>
-                  {cat.icon} {cat.label}
-                </option>
-              ))}
-            </select>
+              onChange={val => setForm(prev => ({ ...prev, category: val }))}
+              options={availableCategories.map(([key, cat]) => ({ value: key, label: cat.label, icon: cat.icon }))}
+            />
           </div>
 
           {/* Date */}

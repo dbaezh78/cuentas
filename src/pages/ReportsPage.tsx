@@ -4,7 +4,6 @@ import { useTransactions } from '../hooks/useTransactions';
 import {
   calculateCategoryTotals,
   calculateMonthlyTotals,
-  getLast6Months,
   formatMonthYear,
   exportToCSV,
   getCategoryConfig,
@@ -14,12 +13,20 @@ import { useSettings } from '../contexts/SettingsContext';
 export default function ReportsPage() {
   const { transactions } = useTransactions();
   const { formatCurrency, customCategories } = useSettings();
-  const months = getLast6Months();
   const [selectedMonth, setSelectedMonth] = useState(''); // '' = all months
+
+  // All months that have at least one transaction, sorted oldest→newest for running balance calc
+  const months = useMemo(() => {
+    const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    return [...set].sort();
+  }, [transactions]);
+
+  // Same months sorted newest→oldest for the dropdown
+  const monthsDesc = useMemo(() => [...months].reverse(), [months]);
 
   const monthlyTotals = useMemo(
     () => calculateMonthlyTotals(transactions, months),
-    [transactions]
+    [transactions, months]
   );
 
   // For the selected month (or all)
@@ -57,7 +64,7 @@ export default function ReportsPage() {
             className="px-4 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-white dark:bg-gray-800 text-gray-900 dark:text-white"
           >
             <option value="">Todos los meses</option>
-            {months.map(m => (
+            {monthsDesc.map(m => (
               <option key={m} value={m}>{formatMonthYear(m + '-01')}</option>
             ))}
           </select>
@@ -116,7 +123,7 @@ export default function ReportsPage() {
 
       {/* Monthly table */}
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
-        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Historial de 6 Meses</h2>
+        <h2 className="font-semibold text-gray-900 dark:text-white mb-4">Historial por Mes ({months.length} meses)</h2>
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>

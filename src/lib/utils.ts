@@ -98,9 +98,10 @@ export function calculateMonthlyTotals(transactions: Transaction[], months: stri
     const monthTx = transactions.filter(t => t.date.startsWith(month));
     const income = monthTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
     const expense = monthTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-    const balance = income + runningBalance - expense;
+    const carryover = runningBalance;
+    const balance = income + carryover - expense;
     runningBalance = balance;
-    return { month, income, expense, balance };
+    return { month, income, expense, balance, carryover };
   });
 }
 
