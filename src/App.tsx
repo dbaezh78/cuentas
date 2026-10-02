@@ -33,10 +33,13 @@ function PublicRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+import PublicReportPage from './pages/PublicReportPage';
+
 function AppRoutes() {
   return (
     <Routes>
       <Route path="/login" element={<PublicRoute><LoginPage /></PublicRoute>} />
+      <Route path="/reporte-publico/:userId/:accountId" element={<PublicReportPage />} />
       <Route element={<ProtectedRoute><Layout /></ProtectedRoute>}>
         <Route path="/" element={<DashboardPage />} />
         <Route path="/cuenta" element={<CuentaPage />} />
@@ -51,16 +54,20 @@ function AppRoutes() {
   );
 }
 
+import { LoggerProvider } from './contexts/LoggerContext';
+
 export default function App() {
   return (
     <HashRouter>
-      <AuthProvider>
-        <AccountsProvider>
-          <SettingsProvider>
-            <AppRoutes />
-          </SettingsProvider>
-        </AccountsProvider>
-      </AuthProvider>
+      <LoggerProvider>
+        <AuthProvider>
+          <AccountsProvider>
+            <SettingsProvider>
+              <AppRoutes />
+            </SettingsProvider>
+          </AccountsProvider>
+        </AuthProvider>
+      </LoggerProvider>
     </HashRouter>
   );
 }

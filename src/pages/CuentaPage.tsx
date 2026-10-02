@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash, FileText, ChevronDown, ChevronUp, Users, Wallet, ShieldAlert } from 'lucide-react';
+import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash, FileText, ChevronDown, ChevronUp, Users, ShieldAlert, Download, AlertTriangle } from 'lucide-react';
 import { useAccounts } from '../contexts/AccountsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { setDoc } from 'firebase/firestore';
-import { db, collection, getDocs, doc } from '../lib/firebase';
-import type { Account } from '../types';
+import { db, collection, getDocs, doc, getAccountTransactionsRef } from '../lib/firebase';
+import { exportToCSV } from '../lib/utils';
+import type { Account, Transaction } from '../types';
 
 type AccountFormData = Omit<Account, 'id' | 'type'>;
 
@@ -19,6 +20,7 @@ interface UserAccountOverview {
   userName: string;
   personalBalance: number;
   maxCompanies: number;
+  deadlineDate: string;
   businesses: {
     id: string;
     razonSocial: string;
@@ -27,9 +29,38 @@ interface UserAccountOverview {
   }[];
 }
 
+async function handleDownloadAccountCSV(userId: string, accountId: string, accountName: string, customCategories: any[]) {
+  try {
+    const ref = getAccountTransactionsRef(userId, accountId);
+    const snap = await getDocs(ref);
+    const txs: Transaction[] = snap.docs.map(d => {
+      const data = d.data();
+      return {
+        id: d.id,
+        amount: Number(data.amount) || 0,
+        category: String(data.category || ''),
+        description: String(data.description || ''),
+        date: String(data.date || ''),
+        paymentMethod: (data.paymentMethod as any) || 'cash',
+        type: (data.type as any) || 'expense',
+        details: Array.isArray(data.details) ? data.details : [],
+      };
+    });
+    if (txs.length === 0) {
+      alert(`La empresa "${accountName}" no tiene transacciones registradas.`);
+      return;
+    }
+    exportToCSV(txs, customCategories);
+  } catch (err) {
+    console.error('Error downloading account CSV:', err);
+    alert('Error al descargar las transacciones.');
+  }
+}
+
 function UserBalancesOverview() {
   const { user } = useAuth();
-  const { formatCurrency } = useSettings();
+  const { refetch } = useAccounts();
+  const { formatCurrency, customCategories } = useSettings();
   const [userOverviews, setUserOverviews] = useState<UserAccountOverview[]>([]);
   const [loading, setLoading] = useState(true);
   const [permissionDenied, setPermissionDenied] = useState(false);
@@ -107,6 +138,7 @@ function UserBalancesOverview() {
           userName: userData.displayName || userData.nombre || (userData.email ? userData.email.split('@')[0] : 'Usuario'),
           personalBalance,
           maxCompanies: Number(userData.maxCompanies) || 2,
+          deadlineDate: userData.deadlineDate ? String(userData.deadlineDate) : '',
           businesses,
         });
       }
@@ -128,11 +160,19 @@ function UserBalancesOverview() {
 
   if (!isAdmin) return null;
 
+  const [deadlineInput, setDeadlineInput] = useState<string>('');
+
   const handleUpdateLimit = async (targetUserId: string) => {
     try {
-      await setDoc(doc(db, 'users', targetUserId), { maxCompanies: limitInput }, { merge: true });
+      await setDoc(doc(db, 'users', targetUserId), {
+        maxCompanies: limitInput,
+        deadlineDate: deadlineInput || null,
+      }, { merge: true });
       setEditingLimitUserId(null);
       await loadAllUsersData();
+      if (targetUserId === user?.uid) {
+        refetch();
+      }
     } catch (err) {
       console.error('Error updating maxCompanies limit:', err);
       alert('Error al actualizar el límite. Verifica las reglas de Firestore.');
@@ -148,7 +188,7 @@ function UserBalancesOverview() {
         </div>
         <button
           onClick={loadAllUsersData}
-          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
         >
           Actualizar datos
         </button>
@@ -161,7 +201,7 @@ function UserBalancesOverview() {
             <span>Permisos de Firestore Requeridos</span>
           </div>
           <p>
-            Para que puedas ver todos los usuarios e incremental el límite de empresas, necesitas actualizar las reglas de Firestore en la consola de Firebase.
+            Para que puedas ver todos los usuarios e incrementar el límite de empresas, necesitas actualizar las reglas de Firestore en la consola de Firebase.
           </p>
         </div>
       )}
@@ -193,22 +233,34 @@ function UserBalancesOverview() {
                 </div>
 
                 <div className="flex items-center gap-4">
-                  {/* Limit control */}
+                  {/* Limit & Deadline control */}
                   <div className="text-right border-r border-gray-200 dark:border-gray-700 pr-4">
-                    <span className="text-xs text-gray-400 block">Límite Empresas</span>
+                    <span className="text-xs text-gray-400 block">Límite & Plazo Regulación</span>
                     {editingLimitUserId === u.userId ? (
-                      <div className="flex items-center gap-1 mt-0.5">
-                        <input
-                          type="number"
-                          min="1"
-                          max="99"
-                          value={limitInput}
-                          onChange={e => setLimitInput(parseInt(e.target.value) || 1)}
-                          className="w-14 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
-                        />
+                      <div className="flex items-center gap-2 mt-1 flex-wrap justify-end">
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-400">Límite:</span>
+                          <input
+                            type="number"
+                            min="1"
+                            max="99"
+                            value={limitInput}
+                            onChange={e => setLimitInput(parseInt(e.target.value) || 1)}
+                            className="w-12 px-1 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          />
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <span className="text-[10px] text-gray-400">Plazo:</span>
+                          <input
+                            type="date"
+                            value={deadlineInput}
+                            onChange={e => setDeadlineInput(e.target.value)}
+                            className="px-1 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                          />
+                        </div>
                         <button
                           onClick={() => handleUpdateLimit(u.userId)}
-                          className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700"
+                          className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700 font-medium"
                         >
                           OK
                         </button>
@@ -220,17 +272,25 @@ function UserBalancesOverview() {
                         </button>
                       </div>
                     ) : (
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-                          {u.maxCompanies} empresas
-                        </span>
+                      <div className="flex items-center gap-1.5 justify-end">
+                        <div>
+                          <span className="text-sm font-semibold text-gray-700 dark:text-gray-300 block">
+                            {u.maxCompanies} empresas
+                          </span>
+                          {u.deadlineDate && (
+                            <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium block">
+                              Plazo: {u.deadlineDate}
+                            </span>
+                          )}
+                        </div>
                         <button
                           onClick={() => {
                             setEditingLimitUserId(u.userId);
                             setLimitInput(u.maxCompanies);
+                            setDeadlineInput(u.deadlineDate || '');
                           }}
-                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
-                          title="Cambiar límite"
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium p-1"
+                          title="Cambiar límite y plazo"
                         >
                           <Pencil size={12} />
                         </button>
@@ -264,11 +324,18 @@ function UserBalancesOverview() {
                           {b.rnc && <p className="text-[10px] text-gray-400">RNC: {b.rnc}</p>}
                         </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Wallet size={14} className="text-gray-400" />
+                      <div className="flex items-center gap-3">
                         <span className={`text-xs font-semibold ${b.balance >= 0 ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
                           {formatCurrency(b.balance)}
                         </span>
+                        <button
+                          onClick={() => handleDownloadAccountCSV(u.userId, b.id, b.razonSocial, customCategories)}
+                          className="flex items-center gap-1 text-[11px] bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 dark:hover:bg-indigo-800/40 px-2 py-1 rounded font-medium transition-colors"
+                          title="Descargar transacciones de esta empresa a Excel/CSV"
+                        >
+                          <Download size={12} />
+                          Descargar CSV
+                        </button>
                       </div>
                     </div>
                   ))
@@ -281,6 +348,8 @@ function UserBalancesOverview() {
     </div>
   );
 }
+
+import { Share2, Lock, Eye, Copy } from 'lucide-react';
 
 interface AccountFormProps {
   initial?: AccountFormData;
@@ -313,12 +382,12 @@ function AccountForm({ initial = emptyForm, onSubmit, onCancel, title }: Account
 
   return (
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4" onClick={onCancel}>
-      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg" onClick={e => e.stopPropagation()}>
+      <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100 dark:border-gray-700">
           <h2 className="font-semibold text-gray-900 dark:text-white text-lg">{title}</h2>
           <button onClick={onCancel} className="p-2 text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg">✕</button>
         </div>
-        <form onSubmit={handleSubmit} className="p-6 space-y-4">
+        <form onSubmit={handleSubmit} className="p-6 space-y-4 overflow-y-auto flex-1">
           {fields.map(({ key, label, icon: Icon, type = 'text', placeholder }) => (
             <div key={key}>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">{label}</label>
@@ -326,7 +395,7 @@ function AccountForm({ initial = emptyForm, onSubmit, onCancel, title }: Account
                 <Icon size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
                 <input
                   type={type}
-                  value={form[key]}
+                  value={form[key] as string || ''}
                   onChange={set(key)}
                   required={key === 'razonSocial'}
                   placeholder={placeholder}
@@ -335,7 +404,42 @@ function AccountForm({ initial = emptyForm, onSubmit, onCancel, title }: Account
               </div>
             </div>
           ))}
-          <div className="flex gap-3 pt-2">
+
+          {/* Share Public Report Options */}
+          <div className="pt-2 border-t border-gray-100 dark:border-gray-700 space-y-3">
+            <label className="flex items-center gap-2 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={Boolean(form.isPublic)}
+                onChange={e => setForm(prev => ({ ...prev, isPublic: e.target.checked }))}
+                className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+              />
+              <span className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
+                <Share2 size={16} className="text-indigo-600 dark:text-indigo-400" />
+                Permitir compartir Reporte de Cuenta públicamente
+              </span>
+            </label>
+
+            {form.isPublic && (
+              <div className="pl-6 space-y-2">
+                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                  Contraseña opcional para ver el reporte (Dejar en blanco para acceso libre):
+                </label>
+                <div className="relative">
+                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="password"
+                    value={form.sharePassword || ''}
+                    onChange={e => setForm(prev => ({ ...prev, sharePassword: e.target.value }))}
+                    placeholder="Contraseña del reporte"
+                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex gap-3 pt-4">
             <button type="button" onClick={onCancel} className="flex-1 py-2.5 border border-gray-200 dark:border-gray-600 text-gray-600 dark:text-gray-300 rounded-xl hover:bg-gray-50 dark:hover:bg-gray-700">
               Cancelar
             </button>
@@ -372,14 +476,59 @@ export default function CuentaPage() {
     }
   };
 
+  const { customCategories } = useSettings();
+  const { deadlineDate } = useAccounts();
+  const businessCount = accounts.filter(a => a.type === 'business').length;
+  const isOverLimit = businessCount > maxCompanies;
+
+  // Calculate days remaining if deadlineDate is set
+  const daysRemaining = (() => {
+    if (!deadlineDate) return null;
+    const target = new Date(deadlineDate + 'T23:59:59');
+    const now = new Date();
+    const diffTime = target.getTime() - now.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
+  })();
+
   return (
     <div className="space-y-6">
+      {/* Over limit / Grace period warning banner */}
+      {isOverLimit && (
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-300 dark:border-amber-700 rounded-2xl p-5 shadow-sm space-y-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 bg-amber-100 dark:bg-amber-800/50 rounded-xl">
+              <AlertTriangle size={22} className="text-amber-600 dark:text-amber-400" />
+            </div>
+            <div>
+              <h3 className="font-bold text-amber-900 dark:text-amber-200 text-base">
+                Aviso de Regulación de Plazas de Empresa
+              </h3>
+              <p className="text-sm text-amber-800 dark:text-amber-300 mt-0.5">
+                Tu cuenta tiene actualmente <span className="font-bold">{businessCount} empresas</span> registradas, pero tu límite permitido es de <span className="font-bold">{maxCompanies} plaza(s)</span>.
+                {daysRemaining !== null ? (
+                  daysRemaining >= 0 ? (
+                    <> Favor elimina {businessCount - maxCompanies} empresa(s) antes de los próximos <span className="font-bold underline">{daysRemaining} día(s)</span> (Fecha límite: {deadlineDate}).</>
+                  ) : (
+                    <> El plazo concedido ({deadlineDate}) ha vencido. Por favor ponte al día eliminando las empresas excedentes.</>
+                  )
+                ) : (
+                  <> Por favor exporta los datos de las empresas excedentes y elimínalas para estar en regla.</>
+                )}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cuentas</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Gestiona tus perfiles contables — Personal y hasta {maxCompanies} empresas
+            {maxCompanies >= 9999
+              ? 'Gestiona tus perfiles contables — Personal y empresas (Sin límite para Administrador)'
+              : `Gestiona tus perfiles contables — Personal y hasta ${maxCompanies} empresas`}
           </p>
         </div>
         {canAddMore && (
@@ -442,6 +591,18 @@ export default function CuentaPage() {
                 </div>
 
                 <div className="flex items-center gap-2 flex-shrink-0">
+                  {/* Download CSV button for business accounts */}
+                  {!isPersonal && (
+                    <button
+                      onClick={() => handleDownloadAccountCSV(user?.uid || '', account.id, account.razonSocial, customCategories)}
+                      className="p-2 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg flex items-center gap-1 text-xs font-medium border border-indigo-200 dark:border-indigo-800"
+                      title="Descargar transacciones de esta empresa en CSV/Excel"
+                    >
+                      <Download size={15} />
+                      <span className="hidden md:inline">Descargar Excel/CSV</span>
+                    </button>
+                  )}
+
                   {/* Expand/collapse details */}
                   {!isPersonal && (
                     <button
@@ -486,22 +647,79 @@ export default function CuentaPage() {
 
               {/* Expanded details (business accounts) */}
               {isExpanded && !isPersonal && (
-                <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {[
-                    { icon: Hash, label: 'RNC / Cédula', value: account.rnc },
-                    { icon: Phone, label: 'Teléfono', value: account.telefono },
-                    { icon: MapPin, label: 'Dirección', value: account.direccion },
-                    { icon: Mail, label: 'Correo', value: account.correo },
-                    { icon: Globe, label: 'Web', value: account.direccionWeb },
-                  ].map(({ icon: Icon, label, value }) => value ? (
-                    <div key={label} className="flex items-start gap-2">
-                      <Icon size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
-                      <div>
-                        <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
-                        <p className="text-sm text-gray-700 dark:text-gray-200">{value}</p>
+                <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {[
+                      { icon: Hash, label: 'RNC / Cédula', value: account.rnc },
+                      { icon: Phone, label: 'Teléfono', value: account.telefono },
+                      { icon: MapPin, label: 'Dirección', value: account.direccion },
+                      { icon: Mail, label: 'Correo', value: account.correo },
+                      { icon: Globe, label: 'Web', value: account.direccionWeb },
+                    ].map(({ icon: Icon, label, value }) => value ? (
+                      <div key={label} className="flex items-start gap-2">
+                        <Icon size={14} className="text-gray-400 mt-0.5 flex-shrink-0" />
+                        <div>
+                          <p className="text-xs text-gray-400 dark:text-gray-500">{label}</p>
+                          <p className="text-sm text-gray-700 dark:text-gray-200">{value}</p>
+                        </div>
                       </div>
+                    ) : null)}
+                  </div>
+
+                  {/* Public Link & Viewer Log Section */}
+                  <div className="pt-3 border-t border-gray-100 dark:border-gray-700/80 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Share2 size={16} className="text-indigo-600 dark:text-indigo-400" />
+                        <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                          Reporte Compartido: {account.isPublic ? 'Habilitado' : 'Deshabilitado'}
+                        </span>
+                        {account.isPublic && account.sharePassword && (
+                          <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                            <Lock size={10} /> Protegido con clave
+                          </span>
+                        )}
+                      </div>
+
+                      {account.isPublic && (
+                        <button
+                          onClick={() => {
+                            const publicUrl = `${window.location.origin}/#/reporte-publico/${user?.uid}/${account.id}`;
+                            navigator.clipboard.writeText(publicUrl);
+                            alert(`¡Enlace copiado al portapapeles!\n\n${publicUrl}`);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 rounded-lg text-xs font-semibold border border-indigo-200 dark:border-indigo-800 transition-colors"
+                        >
+                          <Copy size={13} /> Copiar Enlace Público
+                        </button>
+                      )}
                     </div>
-                  ) : null)}
+
+                    {/* Viewers log list */}
+                    {account.isPublic && (
+                      <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          <Eye size={14} className="text-indigo-500" />
+                          <span>Personas que han visto este reporte ({account.viewers?.length || 0})</span>
+                        </div>
+                        {!account.viewers || account.viewers.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">Nadie ha visto este reporte aún (se registran usuarios con sesión iniciada).</p>
+                        ) : (
+                          <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                            {account.viewers.map((v, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
+                                  <p className="text-[10px] text-gray-400">{v.email}</p>
+                                </div>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{v.viewedAt}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
               )}
 
@@ -550,7 +768,7 @@ export default function CuentaPage() {
       <UserBalancesOverview />
 
       {/* Limit message */}
-      {!canAddMore && (
+      {!canAddMore && !isOverLimit && (
         <p className="text-sm text-center text-gray-400 dark:text-gray-500">
           Has alcanzado el límite de {maxCompanies} empresas. Elimina una para agregar otra.
         </p>

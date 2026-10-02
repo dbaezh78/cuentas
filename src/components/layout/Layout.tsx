@@ -1,6 +1,7 @@
 import { Outlet } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import ActivityLogDrawer from './ActivityLogDrawer';
 import { useState } from 'react';
 
 export default function Layout() {
@@ -26,6 +27,9 @@ export default function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* Floating System Activity Logs */}
+      <ActivityLogDrawer />
     </div>
   );
 }

@@ -7,6 +7,13 @@ export type PaymentMethod = 'cash' | 'card' | 'transfer';
 export type TransactionType = 'income' | 'expense';
 export type AccountType = 'personal' | 'business';
 
+export interface AccountViewer {
+  uid: string;
+  email: string;
+  name: string;
+  viewedAt: string;
+}
+
 export interface Account {
   id: string;
   type: AccountType;
@@ -16,6 +23,9 @@ export interface Account {
   direccion: string;
   correo: string;
   direccionWeb: string;
+  isPublic?: boolean;
+  sharePassword?: string;
+  viewers?: AccountViewer[];
 }
 
 export interface TransactionDetail {

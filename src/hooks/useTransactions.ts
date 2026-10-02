@@ -15,11 +15,13 @@ import {
 } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { useAccounts } from '../contexts/AccountsContext';
+import { useLogger } from '../contexts/LoggerContext';
 import type { Transaction, TransactionFormData } from '../types';
 
 export function useTransactions() {
   const { user } = useAuth();
   const { activeAccountId } = useAccounts();
+  const { addLog } = useLogger();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -30,6 +32,7 @@ export function useTransactions() {
     try {
       setLoading(true);
       setError(null);
+      addLog('FIREBASE_READ', `Cargando transacciones de cuenta ${activeAccountId}`);
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const mapDoc = (docSnap: any, src: 'expenses' | 'transactions'): Transaction => {
@@ -59,12 +62,16 @@ export function useTransactions() {
         const newData = newSnap.docs.map(d => mapDoc(d, 'transactions'));
         const allById = new Map<string, Transaction>();
         [...oldData, ...newData].forEach(t => allById.set(t.id, t));
-        setTransactions(Array.from(allById.values()).sort((a, b) => b.date.localeCompare(a.date)));
+        const res = Array.from(allById.values()).sort((a, b) => b.date.localeCompare(a.date));
+        setTransactions(res);
+        addLog('APP_ACTION', `Cargadas ${res.length} transacciones personales`);
       } else {
         // Business account: only read from its own transactions sub-collection
         const ref = getAccountTransactionsRef(user.uid, activeAccountId);
         const snap = await getDocs(query(ref, orderBy('date', 'desc')));
-        setTransactions(snap.docs.map(d => mapDoc(d, 'transactions')));
+        const res = snap.docs.map(d => mapDoc(d, 'transactions'));
+        setTransactions(res);
+        addLog('APP_ACTION', `Cargadas ${res.length} transacciones de empresa ${activeAccountId}`);
       }
     } catch (err) {
       console.error('Error fetching transactions:', err);
@@ -72,12 +79,13 @@ export function useTransactions() {
     } finally {
       setLoading(false);
     }
-  }, [user, activeAccountId]);
+  }, [user, activeAccountId, addLog]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
   const addTransaction = async (formData: TransactionFormData): Promise<void> => {
     if (!user) throw new Error('Not authenticated');
+    addLog('FIREBASE_WRITE', 'Guardando nueva transacción', `${formData.type.toUpperCase()}: $${formData.amount} - ${formData.description}`);
     const ref = getAccountTransactionsRef(user.uid, activeAccountId);
     const payload = {
       amount: typeof formData.amount === 'string' ? parseFloat(formData.amount) : formData.amount,
@@ -92,6 +100,7 @@ export function useTransactions() {
     const docRef = await addDoc(ref, payload);
     const optimistic: Transaction = { id: docRef.id, ...payload, amount: payload.amount, _sourceCollection: 'transactions' };
     setTransactions(prev => [optimistic, ...prev].sort((a, b) => b.date.localeCompare(a.date)));
+    addLog('FIREBASE_WRITE', 'Transacción guardada exitosamente', `ID: ${docRef.id}`);
   };
 
   const updateTransaction = async (id: string, formData: TransactionFormData): Promise<void> => {
