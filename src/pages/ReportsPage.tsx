@@ -42,10 +42,15 @@ export default function ReportsPage() {
 
   const income = filteredTx.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const expense = filteredTx.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
+
+  // Carryover = balance brought from previous month (only meaningful when a specific month is selected)
+  const selectedMonthData = selectedMonth ? monthlyTotals.find(m => m.month === selectedMonth) : null;
+  const carryover = selectedMonthData?.carryover ?? 0;
+
   // Balance for "all months" is the cumulative (last month's running balance)
   const balance = selectedMonth
-    ? (monthlyTotals.find(m => m.month === selectedMonth)?.balance || income - expense)
-    : (monthlyTotals[monthlyTotals.length - 1]?.balance || income - expense);
+    ? (selectedMonthData?.balance ?? income - expense)
+    : (monthlyTotals[monthlyTotals.length - 1]?.balance ?? income - expense);
 
   const maxExpense = expenseTotals[0]?.total || 1;
 
@@ -78,19 +83,45 @@ export default function ReportsPage() {
         </div>
       </div>
 
-      {/* Summary Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {/* Summary Row — 4 cards when month selected (with carryover), 3 when all */}
+      <div className={`grid grid-cols-1 gap-4 ${selectedMonth && carryover !== 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+
+        {/* Valor Mes Anterior — only when a specific month is selected */}
+        {selectedMonth && carryover !== 0 && (
+          <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-2xl p-5">
+            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium uppercase tracking-wide mb-1">Valor Mes Anterior</p>
+            <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{formatCurrency(carryover)}</p>
+            <p className="text-xs text-purple-500 dark:text-purple-400 mt-1">Balance arrastrado</p>
+          </div>
+        )}
+
+        {/* Ingresos */}
         <div className="bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800 rounded-2xl p-5">
           <p className="text-xs text-green-600 dark:text-green-400 font-medium uppercase tracking-wide mb-1">Ingresos</p>
           <p className="text-2xl font-bold text-green-700 dark:text-green-400">{formatCurrency(income)}</p>
+          <p className="text-xs text-green-500 dark:text-green-400 mt-1">
+            {selectedMonth ? 'Este mes' : 'Total acumulado'}
+          </p>
         </div>
+
+        {/* Gastos */}
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-2xl p-5">
           <p className="text-xs text-red-600 dark:text-red-400 font-medium uppercase tracking-wide mb-1">Gastos</p>
           <p className="text-2xl font-bold text-red-700 dark:text-red-400">{formatCurrency(expense)}</p>
+          <p className="text-xs text-red-500 dark:text-red-400 mt-1">
+            {selectedMonth ? 'Este mes' : 'Total acumulado'}
+          </p>
         </div>
+
+        {/* Balance */}
         <div className={`rounded-2xl p-5 border ${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800'}`}>
           <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Balance</p>
           <p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>{formatCurrency(balance)}</p>
+          {selectedMonth && carryover !== 0 && (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              = Ant. + Ing. − Gas.
+            </p>
+          )}
         </div>
       </div>
 

@@ -6,6 +6,7 @@ import LoginPage from './components/auth/LoginPage';
 import DashboardPage from './pages/DashboardPage';
 import TransactionsPage from './pages/TransactionsPage';
 import ReportsPage from './pages/ReportsPage';
+import ContabilidadPage from './pages/ContabilidadPage';
 import SettingsPage from './pages/SettingsPage';
 import DatosPage from './pages/DatosPage';
 
@@ -38,6 +39,7 @@ function AppRoutes() {
         <Route path="/" element={<DashboardPage />} />
         <Route path="/transacciones" element={<TransactionsPage />} />
         <Route path="/reportes" element={<ReportsPage />} />
+        <Route path="/contabilidad" element={<ContabilidadPage />} />
         <Route path="/datos" element={<DatosPage />} />
         <Route path="/ajustes" element={<SettingsPage />} />
       </Route>
