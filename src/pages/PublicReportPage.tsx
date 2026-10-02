@@ -1,10 +1,11 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, collection, getDocs, arrayUnion } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, getDocs } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from '../contexts/AuthContext';
 import { Lock, Eye, CheckCircle2, AlertCircle, Building2, TrendingUp, TrendingDown, DollarSign, Calendar, ShieldCheck, RefreshCw, User, Moon, Sun, Printer, ChevronDown, ChevronRight } from 'lucide-react';
-import type { Account, Transaction, AccountViewer } from '../types';
+import type { Account, Transaction, AccountViewer, CustomCategory } from '../types';
+import { getCategoryConfig } from '../lib/utils';
 
 export default function PublicReportPage() {
   const { userId, accountId } = useParams<{ userId: string; accountId: string }>();
@@ -13,6 +14,7 @@ export default function PublicReportPage() {
 
   const [account, setAccount] = useState<Account | null>(null);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [customCategories, setCustomCategories] = useState<CustomCategory[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -130,6 +132,18 @@ export default function PublicReportPage() {
         setIsUnlocked(true);
       }
 
+      // Fetch custom categories of the account owner
+      try {
+        const catSnap = await getDocs(collection(db, 'users', userId, 'categories'));
+        const customCats: CustomCategory[] = catSnap.docs.map(d => ({
+          id: d.id,
+          ...(d.data() as Omit<CustomCategory, 'id'>),
+        }));
+        setCustomCategories(customCats);
+      } catch (e) {
+        console.error('Error fetching custom categories for public report:', e);
+      }
+
       // Fetch transactions
       let txList: Transaction[] = [];
       if (isPersonal) {
@@ -201,25 +215,35 @@ export default function PublicReportPage() {
 
       // Record viewer if user is logged in
       if (!isManualRefresh && user && user.email) {
+        const nowFormatted = new Date().toLocaleDateString('es-DO', {
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          hour12: true,
+        });
+
         const viewerRecord: AccountViewer = {
           uid: user.uid,
           email: user.email,
           name: user.displayName || user.email.split('@')[0],
-          viewedAt: new Date().toLocaleDateString('es-DO', {
-            day: '2-digit',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-            hour12: true,
-          }),
+          viewedAt: nowFormatted,
         };
 
         try {
           const targetDoc = isPersonal ? doc(db, 'users', userId) : doc(db, 'users', userId, 'accounts', accountId);
           const fieldKey = isPersonal ? 'personalViewers' : 'viewers';
+          
+          // Filter existing viewers to keep only unique emails, replacing existing email record with latest visit
+          const currentViewers: AccountViewer[] = Array.isArray(accData.viewers) ? accData.viewers : [];
+          const updatedViewers = [
+            ...currentViewers.filter(v => v.email.toLowerCase() !== user.email!.toLowerCase()),
+            viewerRecord,
+          ];
+
           await updateDoc(targetDoc, {
-            [fieldKey]: arrayUnion(viewerRecord),
+            [fieldKey]: updatedViewers,
           });
         } catch (e) {
           console.error('Error logging viewer:', e);
@@ -409,29 +433,50 @@ export default function PublicReportPage() {
     <div className={`min-h-screen p-4 sm:p-8 transition-colors ${isDarkMode ? 'bg-slate-950 text-white' : 'bg-gray-50 text-gray-900'}`}>
       <style>{`
         @media print {
+          @page {
+            margin: 10mm;
+            size: auto;
+          }
           body {
             background-color: white !important;
             color: black !important;
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
           }
           .no-print {
             display: none !important;
           }
+          .print-container {
+            padding: 0 !important;
+            margin: 0 !important;
+            max-width: 100% !important;
+            space-y: 1rem !important;
+          }
           .print-card {
-            border: 1px solid #e2e8f0 !important;
+            border: 1px solid #cbd5e1 !important;
             background: white !important;
             box-shadow: none !important;
+            padding: 1rem !important;
+            border-radius: 0.75rem !important;
+            margin-bottom: 1rem !important;
+          }
+          .print-icon-bg {
+            -webkit-print-color-adjust: exact !important;
+            print-color-adjust: exact !important;
+            background: #4f46e5 !important;
+            color: white !important;
           }
         }
       `}</style>
 
-      <div className="max-w-5xl mx-auto space-y-8">
+      <div className="max-w-5xl mx-auto space-y-8 print-container">
 
         {/* Top Header Card */}
         <div className={`border rounded-3xl p-6 sm:p-8 shadow-2xl flex flex-col md:flex-row items-start md:items-center justify-between gap-6 transition-colors print-card ${
           isDarkMode ? 'bg-slate-900 border-slate-800' : 'bg-white border-gray-200'
         }`}>
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg flex-shrink-0">
+            <div className="w-16 h-16 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-2xl flex items-center justify-center text-white shadow-lg flex-shrink-0 print-icon-bg">
               {isPersonal ? <User size={32} /> : <Building2 size={32} />}
             </div>
             <div>
@@ -632,7 +677,12 @@ export default function PublicReportPage() {
                             <span className="inline-flex items-center gap-1.5"><Calendar size={13} /> {t.date}</span>
                           </td>
                           <td className={`py-3 px-4 font-sans font-medium ${isDarkMode ? 'text-slate-100' : 'text-gray-900'}`}>{t.description}</td>
-                          <td className={`py-3 px-4 capitalize ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>{t.category}</td>
+                          <td className={`py-3 px-4 capitalize ${isDarkMode ? 'text-slate-400' : 'text-gray-500'}`}>
+                            {(() => {
+                              const catCfg = getCategoryConfig(t.category, customCategories);
+                              return `${catCfg.icon} ${catCfg.label}`;
+                            })()}
+                          </td>
                           <td className="py-3 px-4">
                             <span className={`px-2 py-0.5 rounded text-[10px] font-bold font-sans uppercase ${
                               t.type === 'income'

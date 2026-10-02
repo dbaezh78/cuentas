@@ -6,7 +6,7 @@ import { useSettings } from '../contexts/SettingsContext';
 import { setDoc } from 'firebase/firestore';
 import { db, collection, getDocs, doc, getAccountTransactionsRef } from '../lib/firebase';
 import { exportToCSV } from '../lib/utils';
-import type { Account, Transaction } from '../types';
+import type { Account, Transaction, AccountViewer } from '../types';
 
 type AccountFormData = Omit<Account, 'id' | 'type'>;
 
@@ -811,29 +811,41 @@ export default function CuentaPage() {
                     </div>
 
                     {/* Viewers log list */}
-                    {account.isPublic && (
-                      <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          <Eye size={14} className="text-indigo-500" />
-                          <span>Personas que han visto este reporte ({account.viewers?.length || 0})</span>
-                        </div>
-                        {!account.viewers || account.viewers.length === 0 ? (
-                          <p className="text-xs text-gray-400 italic">Nadie ha visto este reporte aún (se registran usuarios con sesión iniciada).</p>
-                        ) : (
-                          <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
-                            {account.viewers.map((v, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
-                                  <p className="text-[10px] text-gray-400">{v.email}</p>
-                                </div>
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{v.viewedAt}</span>
-                              </div>
-                            ))}
+                    {account.isPublic && (() => {
+                      const uniqueViewers = (account.viewers || []).reduce((acc: AccountViewer[], v) => {
+                        const existingIdx = acc.findIndex(item => item.email.toLowerCase() === v.email.toLowerCase());
+                        if (existingIdx >= 0) {
+                          acc[existingIdx] = v;
+                        } else {
+                          acc.push(v);
+                        }
+                        return acc;
+                      }, []);
+
+                      return (
+                        <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            <Eye size={14} className="text-indigo-500" />
+                            <span>Personas que han visto este reporte ({uniqueViewers.length})</span>
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {uniqueViewers.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">Nadie ha visto este reporte aún (se registran usuarios con sesión iniciada).</p>
+                          ) : (
+                            <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                              {uniqueViewers.map((v, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                  <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
+                                    <p className="text-[10px] text-gray-400">{v.email}</p>
+                                  </div>
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{v.viewedAt}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
@@ -896,29 +908,41 @@ export default function CuentaPage() {
                     </div>
 
                     {/* Viewers log list */}
-                    {account.isPublic && (
-                      <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
-                          <Eye size={14} className="text-indigo-500" />
-                          <span>Personas que han visto tu reporte personal ({account.viewers?.length || 0})</span>
-                        </div>
-                        {!account.viewers || account.viewers.length === 0 ? (
-                          <p className="text-xs text-gray-400 italic">Nadie ha visto este reporte aún (se registran usuarios con sesión iniciada).</p>
-                        ) : (
-                          <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
-                            {account.viewers.map((v, idx) => (
-                              <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
-                                <div>
-                                  <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
-                                  <p className="text-[10px] text-gray-400">{v.email}</p>
-                                </div>
-                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{v.viewedAt}</span>
-                              </div>
-                            ))}
+                    {account.isPublic && (() => {
+                      const uniqueViewers = (account.viewers || []).reduce((acc: AccountViewer[], v) => {
+                        const existingIdx = acc.findIndex(item => item.email.toLowerCase() === v.email.toLowerCase());
+                        if (existingIdx >= 0) {
+                          acc[existingIdx] = v;
+                        } else {
+                          acc.push(v);
+                        }
+                        return acc;
+                      }, []);
+
+                      return (
+                        <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                            <Eye size={14} className="text-indigo-500" />
+                            <span>Personas que han visto tu reporte personal ({uniqueViewers.length})</span>
                           </div>
-                        )}
-                      </div>
-                    )}
+                          {uniqueViewers.length === 0 ? (
+                            <p className="text-xs text-gray-400 italic">Nadie ha visto este reporte aún (se registran usuarios con sesión iniciada).</p>
+                          ) : (
+                            <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                              {uniqueViewers.map((v, idx) => (
+                                <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                  <div>
+                                    <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
+                                    <p className="text-[10px] text-gray-400">{v.email}</p>
+                                  </div>
+                                  <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{v.viewedAt}</span>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </div>
                 </div>
               )}
