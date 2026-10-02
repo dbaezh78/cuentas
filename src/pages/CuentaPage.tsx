@@ -411,7 +411,14 @@ function AccountForm({ initial = emptyForm, onSubmit, onCancel, title }: Account
               <input
                 type="checkbox"
                 checked={Boolean(form.isPublic)}
-                onChange={e => setForm(prev => ({ ...prev, isPublic: e.target.checked }))}
+                onChange={e => {
+                  const isChecked = e.target.checked;
+                  setForm(prev => ({
+                    ...prev,
+                    isPublic: isChecked,
+                    publicShareExpiresAt: isChecked ? (prev.publicShareExpiresAt || '') : '',
+                  }));
+                }}
                 className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
               />
               <span className="text-sm font-semibold text-gray-900 dark:text-white flex items-center gap-1.5">
@@ -421,19 +428,98 @@ function AccountForm({ initial = emptyForm, onSubmit, onCancel, title }: Account
             </label>
 
             {form.isPublic && (
-              <div className="pl-6 space-y-2">
-                <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
-                  Contraseña opcional para ver el reporte (Dejar en blanco para acceso libre):
-                </label>
-                <div className="relative">
-                  <Lock size={16} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                  <input
-                    type="password"
-                    value={form.sharePassword || ''}
-                    onChange={e => setForm(prev => ({ ...prev, sharePassword: e.target.value }))}
-                    placeholder="Contraseña del reporte"
-                    className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                  />
+              <div className="pl-6 space-y-3">
+                {/* Password Protection Checkbox */}
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(form.sharePassword)}
+                      onChange={e => {
+                        if (!e.target.checked) {
+                          setForm(prev => ({ ...prev, sharePassword: '' }));
+                        } else if (!form.sharePassword) {
+                          setForm(prev => ({ ...prev, sharePassword: '123' }));
+                        }
+                      }}
+                      className="w-4 h-4 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                    />
+                    <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                      <Lock size={14} className="text-amber-500" />
+                      Proteger con contraseña de acceso
+                    </span>
+                  </label>
+
+                  {Boolean(form.sharePassword !== undefined && form.sharePassword !== '') ? (
+                    <div className="relative pl-6">
+                      <Lock size={16} className="absolute left-9 top-1/2 -translate-y-1/2 text-gray-400" />
+                      <input
+                        type="text"
+                        value={form.sharePassword || ''}
+                        onChange={e => setForm(prev => ({ ...prev, sharePassword: e.target.value }))}
+                        placeholder="Escribe la contraseña para ver el reporte"
+                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      />
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-gray-500 dark:text-gray-400 pl-6">
+                      Sin contraseña (Acceso libre a cualquier persona con el enlace).
+                    </p>
+                  )}
+                </div>
+
+                {/* Expiration Date Section */}
+                <div>
+                  <div className="flex items-center justify-between mb-1">
+                    <label className="block text-xs font-medium text-gray-600 dark:text-gray-400">
+                      Vigilancia de Plazo del Enlace:
+                    </label>
+                    <label className="flex items-center gap-1.5 cursor-pointer text-xs font-semibold text-indigo-600 dark:text-indigo-400">
+                      <input
+                        type="checkbox"
+                        checked={!form.publicShareExpiresAt}
+                        onChange={e => {
+                          if (e.target.checked) {
+                            setForm(prev => ({ ...prev, publicShareExpiresAt: '' }));
+                          } else {
+                            const exp = new Date();
+                            exp.setDate(exp.getDate() + 30);
+                            setForm(prev => ({ ...prev, publicShareExpiresAt: exp.toISOString().split('T')[0] }));
+                          }
+                        }}
+                        className="w-3.5 h-3.5 rounded text-indigo-600 focus:ring-indigo-500 border-gray-300"
+                      />
+                      <span>Sin límite de tiempo</span>
+                    </label>
+                  </div>
+                  {form.publicShareExpiresAt ? (
+                    <input
+                      type="date"
+                      value={form.publicShareExpiresAt}
+                      onChange={e => setForm(prev => ({ ...prev, publicShareExpiresAt: e.target.value }))}
+                      className="w-full px-3 py-2 text-sm border border-gray-200 dark:border-gray-600 rounded-xl bg-white dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                    />
+                  ) : (
+                    <div className="px-3 py-2 border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-950/40 rounded-xl text-xs font-medium text-emerald-700 dark:text-emerald-300 flex items-center justify-between">
+                      <span>Acceso permanente sin fecha de vencimiento.</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const exp = new Date();
+                          exp.setDate(exp.getDate() + 30);
+                          setForm(prev => ({ ...prev, publicShareExpiresAt: exp.toISOString().split('T')[0] }));
+                        }}
+                        className="text-[11px] underline text-indigo-600 dark:text-indigo-400 font-semibold"
+                      >
+                        Establecer plazo
+                      </button>
+                    </div>
+                  )}
+                  {form.publicShareExpiresAt && (
+                    <span className="text-[10px] text-gray-400 mt-0.5 block">
+                      Selecciona libremente la fecha límite en la que el enlace dejará de estar disponible.
+                    </span>
+                  )}
                 </div>
               </div>
             )}
@@ -613,6 +699,16 @@ export default function CuentaPage() {
                       {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                     </button>
                   )}
+                  {/* Edit button for personal account as well */}
+                  {isPersonal && (
+                    <button
+                      onClick={() => setEditAccount(account)}
+                      className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-lg"
+                      title="Configurar reporte compartido personal"
+                    >
+                      <Pencil size={16} />
+                    </button>
+                  )}
                   {!isPersonal && (
                     <>
                       <button
@@ -723,22 +819,86 @@ export default function CuentaPage() {
                 </div>
               )}
 
-              {/* Personal: show user details */}
+              {/* Personal: show user details & share options */}
               {isPersonal && (
-                <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div className="flex items-start gap-2">
-                    <User size={14} className="text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Nombre</p>
-                      <p className="text-sm text-gray-700 dark:text-gray-200">{user?.displayName || '—'}</p>
+                <div className="border-t border-gray-100 dark:border-gray-700 px-5 py-4 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="flex items-start gap-2">
+                      <User size={14} className="text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Nombre</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-200">{user?.displayName || '—'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-start gap-2">
+                      <Mail size={14} className="text-gray-400 mt-0.5" />
+                      <div>
+                        <p className="text-xs text-gray-400 dark:text-gray-500">Correo</p>
+                        <p className="text-sm text-gray-700 dark:text-gray-200">{user?.email || '—'}</p>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex items-start gap-2">
-                    <Mail size={14} className="text-gray-400 mt-0.5" />
-                    <div>
-                      <p className="text-xs text-gray-400 dark:text-gray-500">Correo</p>
-                      <p className="text-sm text-gray-700 dark:text-gray-200">{user?.email || '—'}</p>
+
+                  {/* Public Link & Viewer Log Section for Personal Account */}
+                  <div className="pt-3 border-t border-gray-100 dark:border-gray-700/80 space-y-3">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Share2 size={16} className="text-indigo-600 dark:text-indigo-400" />
+                        <span className="text-xs font-semibold text-gray-900 dark:text-white">
+                          Reporte Compartido Personal: {account.isPublic ? 'Habilitado' : 'Deshabilitado'}
+                        </span>
+                        {account.isPublic && account.sharePassword && (
+                          <span className="text-[10px] bg-amber-100 dark:bg-amber-900/40 text-amber-700 dark:text-amber-300 px-2 py-0.5 rounded font-medium flex items-center gap-1">
+                            <Lock size={10} /> Protegido con clave
+                          </span>
+                        )}
+                      </div>
+
+                      {account.isPublic ? (
+                        <button
+                          onClick={() => {
+                            const publicUrl = `${window.location.origin}/#/reporte-publico/${user?.uid}/personal`;
+                            navigator.clipboard.writeText(publicUrl);
+                            alert(`¡Enlace copiado al portapapeles!\n\n${publicUrl}`);
+                          }}
+                          className="flex items-center gap-1.5 px-3 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-100 rounded-lg text-xs font-semibold border border-indigo-200 dark:border-indigo-800 transition-colors"
+                        >
+                          <Copy size={13} /> Copiar Enlace Público
+                        </button>
+                      ) : (
+                        <button
+                          onClick={() => setEditAccount(account)}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-semibold"
+                        >
+                          Habilitar compartición
+                        </button>
+                      )}
                     </div>
+
+                    {/* Viewers log list */}
+                    {account.isPublic && (
+                      <div className="bg-gray-50 dark:bg-gray-750 p-3 rounded-xl space-y-2 border border-gray-100 dark:border-gray-700">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold text-gray-700 dark:text-gray-300">
+                          <Eye size={14} className="text-indigo-500" />
+                          <span>Personas que han visto tu reporte personal ({account.viewers?.length || 0})</span>
+                        </div>
+                        {!account.viewers || account.viewers.length === 0 ? (
+                          <p className="text-xs text-gray-400 italic">Nadie ha visto este reporte aún (se registran usuarios con sesión iniciada).</p>
+                        ) : (
+                          <div className="max-h-32 overflow-y-auto space-y-1.5 pr-1">
+                            {account.viewers.map((v, idx) => (
+                              <div key={idx} className="flex items-center justify-between text-xs bg-white dark:bg-gray-800 p-2 rounded-lg border border-gray-100 dark:border-gray-700">
+                                <div>
+                                  <p className="font-medium text-gray-900 dark:text-white">{v.name}</p>
+                                  <p className="text-[10px] text-gray-400">{v.email}</p>
+                                </div>
+                                <span className="text-[10px] text-gray-500 dark:text-gray-400 font-mono">{v.viewedAt}</span>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                 </div>
               )}

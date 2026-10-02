@@ -79,7 +79,7 @@ export function useTransactions() {
     } finally {
       setLoading(false);
     }
-  }, [user, activeAccountId, addLog]);
+  }, [user, activeAccountId]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 

@@ -2,32 +2,68 @@ rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Users can only access their own data
-    match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
 
-      // Transactions subcollection
-      match /transactions/{transactionId} {
-        allow read: if request.auth != null && request.auth.uid == userId;
-        allow create: if request.auth != null
-          && request.auth.uid == userId
-          && validateTransaction(request.resource.data);
-        allow update: if request.auth != null
-          && request.auth.uid == userId
-          && validateTransaction(request.resource.data);
-        allow delete: if request.auth != null && request.auth.uid == userId;
-      }
+    // Función auxiliar para identificar al Administrador Principal (email o UID)
+    function isAdmin() {
+      return request.auth != null && (
+        request.auth.token.email.toLowerCase() == 'dbaezh78@gmail.com' ||
+        request.auth.uid == 'Z0882N1OweMMEuf0EsrxJQxd4302'
+      );
     }
 
-    // Validation function for transactions
-    function validateTransaction(data) {
-      return data.keys().hasAll(['amount', 'category', 'description', 'date', 'paymentMethod', 'type'])
-        && data.amount is number
-        && data.amount > 0
-        && data.description is string
-        && data.description.size() > 0
-        && data.description.size() <= 200
-        && data.type in ['income', 'expense'];
+    // Colección de Usuarios y sus subcolecciones
+    match /users/{userId} {
+      // Perfil de usuario: permitir lectura a autenticados, admin o si el reporte es público
+      allow read: if request.auth != null 
+        || isAdmin()
+        || resource == null 
+        || resource.data.isPersonalPublic == true
+        || resource.data.isPublic == true;
+
+      // Permitir escritura al dueño, al admin o para actualizar la lista de visitas
+      allow write: if (request.auth != null && (request.auth.uid == userId || isAdmin()))
+        || (resource.data.isPersonalPublic == true && request.auth != null)
+        || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['personalViewers']));
+
+      // Subcolecciones de cuenta personal (expenses y transactions)
+      match /expenses/{expenseId} {
+        allow read: if request.auth != null 
+          || isAdmin()
+          || get(/databases/$(database)/documents/users/$(userId)).data.isPersonalPublic == true;
+        allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      }
+      
+      match /transactions/{transactionId} {
+        allow read: if request.auth != null 
+          || isAdmin()
+          || get(/databases/$(database)/documents/users/$(userId)).data.isPersonalPublic == true;
+        allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      }
+
+      // Subcolección de cuentas de empresa
+      match /accounts/{accountId} {
+        allow read: if resource == null
+          || resource.data.isPublic == true 
+          || request.auth != null 
+          || isAdmin();
+
+        allow write: if (request.auth != null && (request.auth.uid == userId || isAdmin()))
+          || (resource.data.isPublic == true && request.auth != null)
+          || (request.resource.data.diff(resource.data).affectedKeys().hasOnly(['viewers']));
+
+        // Transacciones de cuenta de empresa
+        match /transactions/{transactionId} {
+          allow read: if request.auth != null 
+            || isAdmin()
+            || get(/databases/$(database)/documents/users/$(userId)/accounts/$(accountId)).data.isPublic == true;
+          allow write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+        }
+      }
+
+      // Regla de respaldo para cualquier otra subcolección futura
+      match /{allSubcollections=**} {
+        allow read, write: if request.auth != null && (request.auth.uid == userId || isAdmin());
+      }
     }
   }
 }

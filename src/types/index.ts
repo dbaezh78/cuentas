@@ -25,6 +25,7 @@ export interface Account {
   direccionWeb: string;
   isPublic?: boolean;
   sharePassword?: string;
+  publicShareExpiresAt?: string;
   viewers?: AccountViewer[];
 }
 

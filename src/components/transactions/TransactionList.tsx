@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
-import { X } from 'lucide-react';
+import { X, Search } from 'lucide-react';
 import TransactionCard from './TransactionCard';
-import { getCategoryConfig, CATEGORIES } from '../../lib/utils';
+import { getCategoryConfig, CATEGORIES, PAYMENT_METHODS } from '../../lib/utils';
 import { useSettings } from '../../contexts/SettingsContext';
 import type { Transaction, PaymentMethod, TransactionType } from '../../types';
 
@@ -25,15 +25,39 @@ export default function TransactionList({ transactions, onEdit, onDelete }: Tran
   }, [transactions]);
 
   const filtered = useMemo(() => {
+    const query = search.trim().toLowerCase();
+
     return transactions.filter(t => {
       if (selectedMonth && !t.date.startsWith(selectedMonth)) return false;
       if (selectedType && t.type !== selectedType) return false;
       if (selectedCategory && t.category !== selectedCategory) return false;
       if (selectedPayment && t.paymentMethod !== selectedPayment) return false;
-      if (search && !t.description.toLowerCase().includes(search.toLowerCase())) return false;
+
+      if (query) {
+        const catConfig = getCategoryConfig(t.category, customCategories);
+        const catLabel = catConfig.label.toLowerCase();
+        const desc = t.description.toLowerCase();
+        const dateStr = t.date.toLowerCase();
+        const amtStr = t.amount.toString();
+        const typeStr = t.type === 'income' ? 'ingreso' : 'gasto';
+        const methodStr = PAYMENT_METHODS[t.paymentMethod as keyof typeof PAYMENT_METHODS]?.toLowerCase() || '';
+        const detailsStr = (t.details || []).map(d => `${d.detalle} ${d.valor}`).join(' ').toLowerCase();
+
+        const match =
+          desc.includes(query) ||
+          catLabel.includes(query) ||
+          dateStr.includes(query) ||
+          amtStr.includes(query) ||
+          typeStr.includes(query) ||
+          methodStr.includes(query) ||
+          detailsStr.includes(query);
+
+        if (!match) return false;
+      }
+
       return true;
     });
-  }, [transactions, selectedMonth, selectedType, selectedCategory, selectedPayment, search]);
+  }, [transactions, selectedMonth, selectedType, selectedCategory, selectedPayment, search, customCategories]);
 
   const allCategories = [
     ...Object.entries(CATEGORIES),
@@ -46,12 +70,13 @@ export default function TransactionList({ transactions, onEdit, onDelete }: Tran
       <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-4 space-y-3">
         {/* Search with X button */}
         <div className="relative">
+          <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
           <input
             type="text"
-            placeholder="Buscar por descripción..."
+            placeholder="Buscar por descripción, categoría, fecha, monto, tipo o método..."
             value={search}
             onChange={e => setSearch(e.target.value)}
-            className="w-full px-4 py-2.5 pr-10 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400"
+            className="w-full pl-10 pr-10 py-2.5 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-500"
           />
           {search && (
             <button

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { addDoc, updateDoc, deleteDoc, getDocs, getDoc, doc, onSnapshot, query, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { addDoc, updateDoc, setDoc, deleteDoc, getDocs, getDoc, doc, onSnapshot, query, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
 import {
   db,
   getUserAccountsRef,
@@ -35,7 +35,9 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
   );
   const [loading, setLoading] = useState(true);
 
-  // The personal account is always derived from the Firebase user
+  const [personalAccountShare, setPersonalAccountShare] = useState<{ isPublic?: boolean; sharePassword?: string; publicShareExpiresAt?: string; viewers?: any[] }>({});
+
+  // The personal account is derived from the Firebase user & doc
   const personalAccount: Account = {
     id: 'personal',
     type: 'personal',
@@ -45,6 +47,10 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     direccion: '',
     correo: user?.email || '',
     direccionWeb: '',
+    isPublic: Boolean(personalAccountShare.isPublic),
+    sharePassword: personalAccountShare.sharePassword || '',
+    publicShareExpiresAt: personalAccountShare.publicShareExpiresAt || '',
+    viewers: personalAccountShare.viewers || [],
   };
 
   const isAdmin = user?.email?.toLowerCase() === 'dbaezh78@gmail.com';
@@ -55,7 +61,7 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     if (!user) { setBusinessAccounts([]); setLoading(false); return; }
     try {
       addLog('FIREBASE_READ', 'Leyendo límite y plazo de usuario', `users/${user.uid}`);
-      // 1. Fetch user custom maxCompanies limit and deadlineDate from user document
+      // 1. Fetch user custom maxCompanies limit, deadlineDate, and personal share settings
       try {
         const userDocSnap = await getDoc(doc(db, 'users', user.uid));
         if (userDocSnap.exists()) {
@@ -70,6 +76,12 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
           } else {
             setDeadlineDate(null);
           }
+          setPersonalAccountShare({
+            isPublic: Boolean(uData.isPersonalPublic),
+            sharePassword: uData.personalSharePassword || '',
+            publicShareExpiresAt: uData.personalPublicShareExpiresAt || '',
+            viewers: Array.isArray(uData.personalViewers) ? uData.personalViewers : [],
+          });
         } else {
           setMaxCompanies(2);
           setDeadlineDate(null);
@@ -111,7 +123,7 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     fetchAccounts();
 
     if (!user) return;
-    // Real-time listener on user doc so limit updates instantly across all active sessions
+    // Real-time listener on user doc so limit & personal share update instantly across all active sessions & refreshes
     const userDocRef = doc(db, 'users', user.uid);
     const unsubscribe = onSnapshot(userDocRef, (snap) => {
       if (snap.exists()) {
@@ -126,7 +138,13 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
         } else {
           setDeadlineDate(null);
         }
-        addLog('REALTIME', 'Sincronización en vivo recibida', `Límite: ${uData.maxCompanies || 2}, Plazo: ${uData.deadlineDate || 'Sin plazo'}`);
+        setPersonalAccountShare({
+          isPublic: Boolean(uData.isPersonalPublic),
+          sharePassword: uData.personalSharePassword || '',
+          publicShareExpiresAt: uData.personalPublicShareExpiresAt || '',
+          viewers: Array.isArray(uData.personalViewers) ? uData.personalViewers : [],
+        });
+        addLog('REALTIME', 'Sincronización en vivo recibida', `Límite: ${uData.maxCompanies || 2}, Compartido Personal: ${Boolean(uData.isPersonalPublic)}`);
       }
     });
 
@@ -155,7 +173,24 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
   };
 
   const updateAccount = async (id: string, data: Omit<Account, 'id' | 'type'>) => {
-    if (!user || id === 'personal') return;
+    if (!user) return;
+    if (id === 'personal') {
+      addLog('FIREBASE_WRITE', 'Actualizando reporte de cuenta personal en Firebase');
+      const userRef = doc(db, 'users', user.uid);
+      const payload = {
+        isPersonalPublic: Boolean(data.isPublic),
+        personalSharePassword: data.sharePassword || '',
+        personalPublicShareExpiresAt: data.publicShareExpiresAt || '',
+      };
+      await setDoc(userRef, payload, { merge: true });
+      setPersonalAccountShare({
+        isPublic: Boolean(data.isPublic),
+        sharePassword: data.sharePassword || '',
+        publicShareExpiresAt: data.publicShareExpiresAt || '',
+      });
+      addLog('APP_ACTION', 'Cuenta personal actualizada', `isPersonalPublic=${Boolean(data.isPublic)}`);
+      return;
+    }
     addLog('FIREBASE_WRITE', 'Actualizando empresa en Firebase', `ID: ${id}`);
     const ref = getUserAccountDocRef(user.uid, id);
     await updateDoc(ref, { ...data, updatedAt: serverTimestamp() });

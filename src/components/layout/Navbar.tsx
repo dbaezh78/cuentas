@@ -1,6 +1,7 @@
-import { Menu, Bell, Building2, User } from 'lucide-react';
+import { Menu, Bell, Building2, User, Moon, Sun } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useAccounts } from '../../contexts/AccountsContext';
+import { useSettings } from '../../contexts/SettingsContext';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -11,7 +12,12 @@ interface NavbarProps {
 export default function Navbar({ onMenuClick }: NavbarProps) {
   const { user } = useAuth();
   const { accounts, activeAccount, activeAccountId, setActiveAccountId } = useAccounts();
+  const { settings, updateSettings } = useSettings();
   const today = format(new Date(), "EEEE, d 'de' MMMM yyyy", { locale: es });
+
+  const toggleDarkMode = () => {
+    updateSettings({ darkMode: !settings.darkMode });
+  };
 
   return (
     <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
@@ -47,6 +53,19 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
             ))}
           </select>
         </div>
+
+        {/* Waning Crescent Moon Theme Toggle */}
+        <button
+          onClick={toggleDarkMode}
+          className="p-2 rounded-xl text-indigo-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-600 flex items-center justify-center"
+          title={settings.darkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
+        >
+          {settings.darkMode ? (
+            <Sun size={18} className="text-amber-400" />
+          ) : (
+            <Moon size={18} className="text-indigo-600" />
+          )}
+        </button>
 
         <button className="p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors">
           <Bell size={20} />
