@@ -20,11 +20,11 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
   };
 
   return (
-    <header className="bg-white dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 px-4 py-3 flex items-center justify-between flex-shrink-0">
+    <header className="bg-white dark:bg-slate-900 border-b border-gray-200 dark:border-slate-800 px-4 py-3 flex items-center justify-between flex-shrink-0">
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="lg:hidden p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors"
+          className="lg:hidden p-2 rounded-lg text-gray-500 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-colors"
         >
           <Menu size={20} />
         </button>
@@ -35,7 +35,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
 
       <div className="flex items-center gap-3">
         {/* Account Selector Dropdown */}
-        <div className="flex items-center gap-2 bg-gray-100 dark:bg-gray-700 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-gray-600">
+        <div className="flex items-center gap-2 bg-gray-100 dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-gray-200 dark:border-slate-700">
           {activeAccount.type === 'personal' ? (
             <User size={16} className="text-blue-500" />
           ) : (
@@ -47,7 +47,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
             className="bg-transparent text-sm font-medium text-gray-800 dark:text-white focus:outline-none cursor-pointer"
           >
             {accounts.map((acc) => (
-              <option key={acc.id} value={acc.id} className="bg-white dark:bg-gray-800 text-gray-900 dark:text-white">
+              <option key={acc.id} value={acc.id} className="bg-white dark:bg-slate-800 text-gray-900 dark:text-white">
                 {acc.razonSocial || (acc.type === 'personal' ? 'Personal' : 'Empresa')}
               </option>
             ))}
@@ -57,7 +57,7 @@ export default function Navbar({ onMenuClick }: NavbarProps) {
         {/* Waning Crescent Moon Theme Toggle */}
         <button
           onClick={toggleDarkMode}
-          className="p-2 rounded-xl text-indigo-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-gray-700 transition-all border border-gray-200 dark:border-gray-600 flex items-center justify-center"
+          className="p-2 rounded-xl text-indigo-600 dark:text-amber-400 hover:bg-gray-100 dark:hover:bg-slate-800 transition-all border border-gray-200 dark:border-slate-700 flex items-center justify-center"
           title={settings.darkMode ? 'Cambiar a Modo Claro' : 'Cambiar a Modo Oscuro'}
         >
           {settings.darkMode ? (
