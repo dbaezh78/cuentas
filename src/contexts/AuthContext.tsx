@@ -9,7 +9,8 @@ import {
   sendPasswordResetEmail,
   updateProfile,
 } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { auth, googleProvider, db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
@@ -31,8 +32,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setUser(user);
+    const unsubscribe = onAuthStateChanged(auth, async (u) => {
+      setUser(u);
+      if (u) {
+        // Guarantee user doc exists for admin listing & settings
+        try {
+          await setDoc(doc(db, 'users', u.uid), {
+            email: u.email,
+            displayName: u.displayName || u.email?.split('@')[0] || 'Usuario',
+            photoURL: u.photoURL || null,
+            lastLogin: serverTimestamp(),
+          }, { merge: true });
+        } catch (e) {
+          console.error('Error saving user profile doc:', e);
+        }
+      }
       setLoading(false);
     });
     return unsubscribe;

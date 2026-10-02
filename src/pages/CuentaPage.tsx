@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash, FileText, ChevronDown, ChevronUp, Users, Wallet } from 'lucide-react';
+import { Building2, User, Plus, Pencil, Trash2, Globe, Phone, MapPin, Mail, Hash, FileText, ChevronDown, ChevronUp, Users, Wallet, ShieldAlert } from 'lucide-react';
 import { useAccounts } from '../contexts/AccountsContext';
 import { useAuth } from '../contexts/AuthContext';
 import { useSettings } from '../contexts/SettingsContext';
-import { db, collection, getDocs } from '../lib/firebase';
+import { setDoc } from 'firebase/firestore';
+import { db, collection, getDocs, doc } from '../lib/firebase';
 import type { Account } from '../types';
 
 type AccountFormData = Omit<Account, 'id' | 'type'>;
@@ -17,6 +18,7 @@ interface UserAccountOverview {
   userEmail: string;
   userName: string;
   personalBalance: number;
+  maxCompanies: number;
   businesses: {
     id: string;
     razonSocial: string;
@@ -26,49 +28,58 @@ interface UserAccountOverview {
 }
 
 function UserBalancesOverview() {
+  const { user } = useAuth();
   const { formatCurrency } = useSettings();
   const [userOverviews, setUserOverviews] = useState<UserAccountOverview[]>([]);
   const [loading, setLoading] = useState(true);
+  const [permissionDenied, setPermissionDenied] = useState(false);
+  const [editingLimitUserId, setEditingLimitUserId] = useState<string | null>(null);
+  const [limitInput, setLimitInput] = useState<number>(2);
 
-  useEffect(() => {
-    async function loadAllUsersData() {
-      try {
-        setLoading(true);
-        const usersSnap = await getDocs(collection(db, 'users'));
-        const overviews: UserAccountOverview[] = [];
+  // Strictly check if logged-in user is dbaezh78@gmail.com
+  const isAdmin = user?.email?.toLowerCase() === 'dbaezh78@gmail.com';
 
-        for (const userDoc of usersSnap.docs) {
-          const userId = userDoc.id;
-          const userData = userDoc.data();
+  const loadAllUsersData = async () => {
+    if (!isAdmin) return;
+    try {
+      setLoading(true);
+      setPermissionDenied(false);
+      const usersSnap = await getDocs(collection(db, 'users'));
+      const overviews: UserAccountOverview[] = [];
 
-          // Compute Personal Account Balance (Root expenses + root transactions)
-          let personalBalance = 0;
-          try {
-            const expensesSnap = await getDocs(collection(db, 'users', userId, 'expenses'));
-            expensesSnap.forEach(d => {
-              const data = d.data();
-              const amt = Number(data.amount) || 0;
-              if (data.type === 'income') personalBalance += amt;
-              else personalBalance -= amt;
-            });
-            const transSnap = await getDocs(collection(db, 'users', userId, 'transactions'));
-            transSnap.forEach(d => {
-              const data = d.data();
-              const amt = Number(data.amount) || 0;
-              if (data.type === 'income') personalBalance += amt;
-              else personalBalance -= amt;
-            });
-          } catch (e) {
-            console.error('Error fetching personal tx for user', userId, e);
-          }
+      for (const userDoc of usersSnap.docs) {
+        const userId = userDoc.id;
+        const userData = userDoc.data();
 
-          // Fetch Business Accounts
-          const businesses: UserAccountOverview['businesses'] = [];
-          try {
-            const accountsSnap = await getDocs(collection(db, 'users', userId, 'accounts'));
-            for (const accDoc of accountsSnap.docs) {
-              const accData = accDoc.data();
-              let bBalance = 0;
+        // Compute Personal Account Balance (Root expenses + root transactions)
+        let personalBalance = 0;
+        try {
+          const expensesSnap = await getDocs(collection(db, 'users', userId, 'expenses'));
+          expensesSnap.forEach(d => {
+            const data = d.data();
+            const amt = Number(data.amount) || 0;
+            if (data.type === 'income') personalBalance += amt;
+            else personalBalance -= amt;
+          });
+          const transSnap = await getDocs(collection(db, 'users', userId, 'transactions'));
+          transSnap.forEach(d => {
+            const data = d.data();
+            const amt = Number(data.amount) || 0;
+            if (data.type === 'income') personalBalance += amt;
+            else personalBalance -= amt;
+          });
+        } catch {
+          // Restricted by rules until admin rules deployed
+        }
+
+        // Fetch Business Accounts
+        const businesses: UserAccountOverview['businesses'] = [];
+        try {
+          const accountsSnap = await getDocs(collection(db, 'users', userId, 'accounts'));
+          for (const accDoc of accountsSnap.docs) {
+            const accData = accDoc.data();
+            let bBalance = 0;
+            try {
               const bTxSnap = await getDocs(collection(db, 'users', userId, 'accounts', accDoc.id, 'transactions'));
               bTxSnap.forEach(d => {
                 const data = d.data();
@@ -76,69 +87,171 @@ function UserBalancesOverview() {
                 if (data.type === 'income') bBalance += amt;
                 else bBalance -= amt;
               });
-              businesses.push({
-                id: accDoc.id,
-                razonSocial: accData.razonSocial || 'Empresa sin nombre',
-                rnc: accData.rnc || '',
-                balance: bBalance,
-              });
+            } catch {
+              // Subcollection restricted
             }
-          } catch (e) {
-            console.error('Error fetching accounts for user', userId, e);
+            businesses.push({
+              id: accDoc.id,
+              razonSocial: accData.razonSocial || 'Empresa sin nombre',
+              rnc: accData.rnc || '',
+              balance: bBalance,
+            });
           }
-
-          overviews.push({
-            userId,
-            userEmail: userData.email || userData.correo || userDoc.id,
-            userName: userData.displayName || userData.nombre || 'Usuario',
-            personalBalance,
-            businesses,
-          });
+        } catch {
+          // Accounts collection restricted
         }
-        setUserOverviews(overviews);
-      } catch (err) {
-        console.error('Error fetching overview of users:', err);
-      } finally {
-        setLoading(false);
+
+        overviews.push({
+          userId,
+          userEmail: userData.email || userData.correo || userDoc.id,
+          userName: userData.displayName || userData.nombre || (userData.email ? userData.email.split('@')[0] : 'Usuario'),
+          personalBalance,
+          maxCompanies: Number(userData.maxCompanies) || 2,
+          businesses,
+        });
       }
+      setUserOverviews(overviews);
+    } catch (err: unknown) {
+      console.error('Error fetching overview of users:', err);
+      const isPermError = err instanceof Error && err.message.toLowerCase().includes('permission');
+      if (isPermError || String(err).includes('permission-denied')) {
+        setPermissionDenied(true);
+      }
+    } finally {
+      setLoading(false);
     }
+  };
+
+  useEffect(() => {
     loadAllUsersData();
-  }, []);
+  }, [user]);
+
+  if (!isAdmin) return null;
+
+  const handleUpdateLimit = async (targetUserId: string) => {
+    try {
+      await setDoc(doc(db, 'users', targetUserId), { maxCompanies: limitInput }, { merge: true });
+      setEditingLimitUserId(null);
+      await loadAllUsersData();
+    } catch (err) {
+      console.error('Error updating maxCompanies limit:', err);
+      alert('Error al actualizar el límite. Verifica las reglas de Firestore.');
+    }
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm space-y-4">
-      <div className="flex items-center gap-2 mb-2">
-        <Users size={20} className="text-indigo-600 dark:text-indigo-400" />
-        <h2 className="text-lg font-bold text-gray-900 dark:text-white">Usuarios Activos y Balances por Empresa</h2>
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <Users size={20} className="text-indigo-600 dark:text-indigo-400" />
+          <h2 className="text-lg font-bold text-gray-900 dark:text-white">Usuarios Activos y Balances por Empresa</h2>
+        </div>
+        <button
+          onClick={loadAllUsersData}
+          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
+        >
+          Actualizar datos
+        </button>
       </div>
+
+      {permissionDenied && (
+        <div className="bg-amber-50 dark:bg-amber-900/30 border border-amber-200 dark:border-amber-700 p-4 rounded-xl text-amber-800 dark:text-amber-300 text-sm space-y-2">
+          <div className="flex items-center gap-2 font-semibold">
+            <ShieldAlert size={18} />
+            <span>Permisos de Firestore Requeridos</span>
+          </div>
+          <p>
+            Para que puedas ver todos los usuarios e incremental el límite de empresas, necesitas actualizar las reglas de Firestore en la consola de Firebase.
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <p className="text-sm text-gray-500 dark:text-gray-400 py-4">Cargando usuarios y empresas...</p>
       ) : userOverviews.length === 0 ? (
-        <p className="text-sm text-gray-500 dark:text-gray-400 py-4">No hay datos de usuarios registrados.</p>
+        <p className="text-sm text-gray-500 dark:text-gray-400 py-4">
+          {permissionDenied ? 'Para visualizar a todos los usuarios, actualiza las reglas de Firestore.' : 'No hay datos de usuarios registrados.'}
+        </p>
       ) : (
         <div className="space-y-4">
           {userOverviews.map(u => (
             <div key={u.userId} className="border border-gray-100 dark:border-gray-700 rounded-xl p-4 bg-gray-50/50 dark:bg-gray-750">
-              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-3">
+              <div className="flex items-center justify-between border-b border-gray-200 dark:border-gray-700 pb-3 mb-3 flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <User size={18} className="text-blue-500" />
                   <div>
-                    <p className="font-semibold text-gray-900 dark:text-white text-sm">{u.userName}</p>
+                    <div className="flex items-center gap-2">
+                      <p className="font-semibold text-gray-900 dark:text-white text-sm">{u.userName}</p>
+                      {u.userId === user?.uid && (
+                        <span className="text-[10px] bg-blue-100 dark:bg-blue-900/40 text-blue-600 dark:text-blue-300 px-1.5 py-0.5 rounded font-semibold">
+                          Tú (Admin)
+                        </span>
+                      )}
+                    </div>
                     <p className="text-xs text-gray-500 dark:text-gray-400">{u.userEmail}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <span className="text-xs text-gray-400 block">Balance Personal</span>
-                  <span className={`text-sm font-bold ${u.personalBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                    {formatCurrency(u.personalBalance)}
-                  </span>
+
+                <div className="flex items-center gap-4">
+                  {/* Limit control */}
+                  <div className="text-right border-r border-gray-200 dark:border-gray-700 pr-4">
+                    <span className="text-xs text-gray-400 block">Límite Empresas</span>
+                    {editingLimitUserId === u.userId ? (
+                      <div className="flex items-center gap-1 mt-0.5">
+                        <input
+                          type="number"
+                          min="1"
+                          max="99"
+                          value={limitInput}
+                          onChange={e => setLimitInput(parseInt(e.target.value) || 1)}
+                          className="w-14 px-1.5 py-0.5 text-xs border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 text-gray-900 dark:text-white"
+                        />
+                        <button
+                          onClick={() => handleUpdateLimit(u.userId)}
+                          className="text-xs bg-indigo-600 text-white px-2 py-0.5 rounded hover:bg-indigo-700"
+                        >
+                          OK
+                        </button>
+                        <button
+                          onClick={() => setEditingLimitUserId(null)}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+                          {u.maxCompanies} empresas
+                        </span>
+                        <button
+                          onClick={() => {
+                            setEditingLimitUserId(u.userId);
+                            setLimitInput(u.maxCompanies);
+                          }}
+                          className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                          title="Cambiar límite"
+                        >
+                          <Pencil size={12} />
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="text-right">
+                    <span className="text-xs text-gray-400 block">Balance Personal</span>
+                    <span className={`text-sm font-bold ${u.personalBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                      {formatCurrency(u.personalBalance)}
+                    </span>
+                  </div>
                 </div>
               </div>
 
               {/* Nested Business Accounts */}
               <div className="pl-4 space-y-2">
-                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">Empresas ({u.businesses.length})</p>
+                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2">
+                  Empresas Creadas ({u.businesses.length} / {u.maxCompanies})
+                </p>
                 {u.businesses.length === 0 ? (
                   <p className="text-xs text-gray-400 italic">Sin empresas registradas.</p>
                 ) : (
@@ -238,7 +351,7 @@ function AccountForm({ initial = emptyForm, onSubmit, onCancel, title }: Account
 
 export default function CuentaPage() {
   const { user } = useAuth();
-  const { accounts, activeAccountId, setActiveAccountId, addAccount, updateAccount, deleteAccount, canAddMore } = useAccounts();
+  const { accounts, activeAccountId, setActiveAccountId, addAccount, updateAccount, deleteAccount, canAddMore, maxCompanies } = useAccounts();
   const [showForm, setShowForm] = useState(false);
   const [editAccount, setEditAccount] = useState<Account | null>(null);
   const [expanded, setExpanded] = useState<string | null>(null);
@@ -266,7 +379,7 @@ export default function CuentaPage() {
         <div>
           <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Cuentas</h1>
           <p className="text-gray-500 dark:text-gray-400 text-sm mt-1">
-            Gestiona tus perfiles contables — Personal y hasta 2 empresas
+            Gestiona tus perfiles contables — Personal y hasta {maxCompanies} empresas
           </p>
         </div>
         {canAddMore && (
@@ -421,7 +534,7 @@ export default function CuentaPage() {
         <div className="text-center py-10 bg-white dark:bg-gray-800 rounded-2xl border border-dashed border-gray-200 dark:border-gray-700">
           <Building2 size={40} className="mx-auto text-gray-300 dark:text-gray-600 mb-3" />
           <p className="text-gray-500 dark:text-gray-400 font-medium">No tienes empresas registradas</p>
-          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1 mb-4">Puedes agregar hasta 2 empresas</p>
+          <p className="text-gray-400 dark:text-gray-500 text-sm mt-1 mb-4">Puedes agregar hasta {maxCompanies} empresas</p>
           {canAddMore && (
             <button
               onClick={() => setShowForm(true)}
@@ -439,7 +552,7 @@ export default function CuentaPage() {
       {/* Limit message */}
       {!canAddMore && (
         <p className="text-sm text-center text-gray-400 dark:text-gray-500">
-          Has alcanzado el límite de 2 empresas. Elimina una para agregar otra.
+          Has alcanzado el límite de {maxCompanies} empresas. Elimina una para agregar otra.
         </p>
       )}
 

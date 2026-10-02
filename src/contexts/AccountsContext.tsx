@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { addDoc, updateDoc, deleteDoc, getDocs, query, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
+import { addDoc, updateDoc, deleteDoc, getDocs, getDoc, doc, query, orderBy, serverTimestamp, Timestamp } from 'firebase/firestore';
 import {
+  db,
   getUserAccountsRef,
   getUserAccountDocRef,
 } from '../lib/firebase';
@@ -16,7 +17,8 @@ interface AccountsContextType {
   updateAccount: (id: string, data: Omit<Account, 'id' | 'type'>) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
   loading: boolean;
-  canAddMore: boolean;           // max 2 business accounts
+  canAddMore: boolean;
+  maxCompanies: number;
 }
 
 const AccountsContext = createContext<AccountsContextType | undefined>(undefined);
@@ -41,9 +43,25 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
     direccionWeb: '',
   };
 
+  const [maxCompanies, setMaxCompanies] = useState<number>(2);
+
   const fetchAccounts = useCallback(async () => {
     if (!user) { setBusinessAccounts([]); setLoading(false); return; }
     try {
+      // 1. Fetch user custom maxCompanies limit from user document
+      try {
+        const userDocSnap = await getDoc(doc(db, 'users', user.uid));
+        if (userDocSnap.exists()) {
+          const uData = userDocSnap.data();
+          if (typeof uData.maxCompanies === 'number') {
+            setMaxCompanies(uData.maxCompanies);
+          }
+        }
+      } catch (e) {
+        console.error('Error fetching user maxCompanies doc:', e);
+      }
+
+      // 2. Fetch business accounts
       const ref = getUserAccountsRef(user.uid);
       const snap = await getDocs(query(ref, orderBy('createdAt', 'asc')));
       const data: Account[] = snap.docs.map(d => {
@@ -78,7 +96,7 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
   const activeAccount = accounts.find(a => a.id === activeAccountId) || personalAccount;
 
   const addAccount = async (data: Omit<Account, 'id' | 'type'>) => {
-    if (!user || businessAccounts.length >= 2) return;
+    if (!user || businessAccounts.length >= maxCompanies) return;
     const ref = getUserAccountsRef(user.uid);
     const docRef = await addDoc(ref, { ...data, type: 'business', createdAt: serverTimestamp() });
     setBusinessAccounts(prev => [...prev, { id: docRef.id, type: 'business', ...data }]);
@@ -109,7 +127,8 @@ export function AccountsProvider({ children }: { children: React.ReactNode }) {
       updateAccount,
       deleteAccount,
       loading,
-      canAddMore: businessAccounts.length < 2,
+      canAddMore: businessAccounts.length < maxCompanies,
+      maxCompanies,
     }}>
       {children}
     </AccountsContext.Provider>
