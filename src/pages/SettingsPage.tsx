@@ -62,9 +62,9 @@ export default function SettingsPage() {
       </div>
 
       {/* Currency */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
-          <div className="p-2.5 bg-blue-100 dark:bg-blue-900 rounded-xl">
+          <div className="p-2.5 bg-blue-100 dark:bg-blue-900/40 rounded-xl">
             <Globe size={20} className="text-blue-600 dark:text-blue-400" />
           </div>
           <div>
@@ -75,7 +75,7 @@ export default function SettingsPage() {
         <select
           value={localCurrency}
           onChange={(e) => setLocalCurrency(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-200 dark:border-gray-600 rounded-xl text-sm bg-gray-50 dark:bg-gray-700 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-4 py-3 border border-gray-200 dark:border-slate-700 rounded-xl text-sm bg-gray-50 dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           {CURRENCIES.map((c) => (
             <option key={c.code} value={c.code}>
@@ -86,10 +86,10 @@ export default function SettingsPage() {
       </div>
 
       {/* Dark Mode */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-6 shadow-sm">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-slate-100 dark:bg-slate-700 rounded-xl">
+            <div className="p-2.5 bg-slate-100 dark:bg-slate-800 rounded-xl">
               {localDark
                 ? <Moon size={20} className="text-slate-600 dark:text-slate-300" />
                 : <Sun size={20} className="text-yellow-500" />}
@@ -103,14 +103,20 @@ export default function SettingsPage() {
           </div>
           {/* Toggle — applies immediately */}
           <button
+            type="button"
+            role="switch"
+            aria-checked={localDark}
             onClick={handleDarkToggle}
-            className={`relative w-12 h-6 rounded-full transition-colors duration-200 ${
-              localDark ? 'bg-blue-600' : 'bg-gray-200 dark:bg-gray-600'
+            className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
+              localDark ? 'bg-blue-600' : 'bg-gray-300 dark:bg-slate-700'
             }`}
           >
-            <span className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform duration-200 ${
-              localDark ? 'translate-x-7' : 'translate-x-1'
-            }`} />
+            <span
+              aria-hidden="true"
+              className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow-md ring-0 transition duration-200 ease-in-out ${
+                localDark ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
           </button>
         </div>
         <p className="text-xs text-gray-400 dark:text-gray-500 mt-3">
@@ -119,7 +125,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Refresh Data */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-emerald-100 dark:bg-emerald-900/40 rounded-xl">
             <RefreshCw size={20} className="text-emerald-600 dark:text-emerald-400" />
@@ -146,7 +152,7 @@ export default function SettingsPage() {
       </div>
 
       {/* Reload App (clear cache) */}
-      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-100 dark:border-gray-700 p-6 shadow-sm">
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-gray-100 dark:border-slate-800 p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-4">
           <div className="p-2.5 bg-orange-100 dark:bg-orange-900/40 rounded-xl">
             <RotateCcw size={20} className="text-orange-600 dark:text-orange-400" />

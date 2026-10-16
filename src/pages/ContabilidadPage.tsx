@@ -2,19 +2,20 @@ import { useMemo, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { useTransactions } from '../hooks/useTransactions';
 import { useSettings } from '../contexts/SettingsContext';
-import { getCategoryConfig, formatDate, formatMonthYear, CATEGORIES } from '../lib/utils';
+import { getCategoryConfig, formatDate, formatMonthYear, getCurrentMonth, CATEGORIES } from '../lib/utils';
 
 export default function ContabilidadPage() {
   const { transactions } = useTransactions();
   const { formatCurrency, customCategories } = useSettings();
 
-  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedType, setSelectedType] = useState(''); // '', 'income', 'expense'
 
   // All months with transactions (newest first for dropdown)
   const months = useMemo(() => {
     const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    set.add(getCurrentMonth());
     return [...set].sort().reverse();
   }, [transactions]);
 
@@ -113,7 +114,7 @@ export default function ContabilidadPage() {
             onClick={() => { setSelectedMonth(''); setSelectedCategory(''); setSelectedType(''); }}
             className="mt-3 text-xs text-indigo-600 dark:text-indigo-400 hover:underline"
           >
-            × Limpiar filtros
+            × Mostrar todos los meses / limpiar filtros
           </button>
         )}
       </div>

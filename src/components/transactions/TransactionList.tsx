@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react';
 import { X, Search } from 'lucide-react';
 import TransactionCard from './TransactionCard';
-import { getCategoryConfig, CATEGORIES, PAYMENT_METHODS } from '../../lib/utils';
+import { getCategoryConfig, formatMonthYear, getCurrentMonth, CATEGORIES, PAYMENT_METHODS } from '../../lib/utils';
 import { useSettings } from '../../contexts/SettingsContext';
 import type { Transaction, PaymentMethod, TransactionType } from '../../types';
 
@@ -14,13 +14,14 @@ interface TransactionListProps {
 export default function TransactionList({ transactions, onEdit, onDelete }: TransactionListProps) {
   const { customCategories } = useSettings();
   const [search, setSearch] = useState('');
-  const [selectedMonth, setSelectedMonth] = useState('');
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
   const [selectedType, setSelectedType] = useState<TransactionType | ''>('');
   const [selectedCategory, setSelectedCategory] = useState('');
   const [selectedPayment, setSelectedPayment] = useState<PaymentMethod | ''>('');
 
   const months = useMemo(() => {
     const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    set.add(getCurrentMonth());
     return Array.from(set).sort().reverse();
   }, [transactions]);
 
@@ -88,11 +89,18 @@ export default function TransactionList({ transactions, onEdit, onDelete }: Tran
           )}
         </div>
 
-        <div className="flex flex-wrap gap-2">
-          <select value={selectedMonth} onChange={e => setSelectedMonth(e.target.value)}
-            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={selectedMonth}
+            onChange={e => setSelectedMonth(e.target.value)}
+            className="px-3 py-2 border border-gray-200 dark:border-gray-600 rounded-lg text-sm bg-white dark:bg-gray-700 text-gray-900 dark:text-white capitalize"
+          >
             <option value="">Todos los meses</option>
-            {months.map(m => <option key={m} value={m}>{m}</option>)}
+            {months.map(m => (
+              <option key={m} value={m}>
+                {formatMonthYear(m + '-01')}
+              </option>
+            ))}
           </select>
 
           <select value={selectedType} onChange={e => setSelectedType(e.target.value as TransactionType | '')}
@@ -118,6 +126,29 @@ export default function TransactionList({ transactions, onEdit, onDelete }: Tran
             <option value="transfer">Transferencia</option>
           </select>
         </div>
+
+        {/* Clear filter / Show all months */}
+        {(selectedMonth || selectedType || selectedCategory || selectedPayment || search) && (
+          <div className="flex items-center gap-2 pt-1 text-xs">
+            <button
+              onClick={() => {
+                setSelectedMonth('');
+                setSelectedType('');
+                setSelectedCategory('');
+                setSelectedPayment('');
+                setSearch('');
+              }}
+              className="text-blue-600 dark:text-blue-400 hover:underline flex items-center gap-1"
+            >
+              <X size={13} /> Mostrar todos los meses / limpiar filtros
+            </button>
+            {selectedMonth && (
+              <span className="text-gray-400 dark:text-gray-500">
+                (Mostrando: <strong className="capitalize text-gray-600 dark:text-gray-300">{formatMonthYear(selectedMonth + '-01')}</strong>)
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Results count */}
