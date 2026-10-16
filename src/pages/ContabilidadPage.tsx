@@ -2,7 +2,7 @@ import { useMemo, useState } from 'react';
 import { BookOpen } from 'lucide-react';
 import { useTransactions } from '../hooks/useTransactions';
 import { useSettings } from '../contexts/SettingsContext';
-import { getCategoryConfig, formatDate, formatMonthYear, getCurrentMonth, CATEGORIES } from '../lib/utils';
+import { getCategoryConfig, formatDate, formatMonthYear, getCurrentMonth, calculateMonthlyTotals, CATEGORIES } from '../lib/utils';
 
 export default function ContabilidadPage() {
   const { transactions } = useTransactions();
@@ -18,6 +18,21 @@ export default function ContabilidadPage() {
     set.add(getCurrentMonth());
     return [...set].sort().reverse();
   }, [transactions]);
+
+  // Sorted oldest to newest for cumulative balance calculation
+  const allMonthsSorted = useMemo(() => {
+    const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    set.add(getCurrentMonth());
+    return [...set].sort();
+  }, [transactions]);
+
+  const monthlyTotals = useMemo(
+    () => calculateMonthlyTotals(transactions, allMonthsSorted),
+    [transactions, allMonthsSorted]
+  );
+
+  const selectedMonthData = selectedMonth ? monthlyTotals.find(m => m.month === selectedMonth) : null;
+  const carryover = selectedMonthData?.carryover ?? 0;
 
   // All categories that appear in transactions
   const allCategories = useMemo(() => {
@@ -42,7 +57,8 @@ export default function ContabilidadPage() {
 
   const totalIncome  = filtered.filter(t => t.type === 'income').reduce((s, t) => s + t.amount, 0);
   const totalExpense = filtered.filter(t => t.type === 'expense').reduce((s, t) => s + t.amount, 0);
-  const balance = totalIncome - totalExpense;
+  const netMonthly = totalIncome - totalExpense;
+  const totalBalance = selectedMonth ? (totalIncome + carryover - totalExpense) : netMonthly;
 
   return (
     <div className="space-y-6">
@@ -120,18 +136,43 @@ export default function ContabilidadPage() {
       </div>
 
       {/* Totals row */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className={`grid grid-cols-1 gap-4 ${selectedMonth && carryover !== 0 ? 'sm:grid-cols-4' : 'sm:grid-cols-3'}`}>
+        {/* Valor Mes Anterior — only when a specific month is selected and has carryover */}
+        {selectedMonth && carryover !== 0 && (
+          <div className="bg-purple-50 dark:bg-purple-900/30 border border-purple-100 dark:border-purple-800 rounded-2xl p-4 text-center">
+            <p className="text-xs text-purple-600 dark:text-purple-400 font-medium uppercase tracking-wide mb-1">Valor Mes Anterior</p>
+            <p className="text-xl font-bold text-purple-700 dark:text-purple-300">{formatCurrency(carryover)}</p>
+            <p className="text-[11px] text-purple-500 dark:text-purple-400 mt-1">Balance arrastrado</p>
+          </div>
+        )}
+
+        {/* Ingresos */}
         <div className="bg-green-50 dark:bg-green-900/30 border border-green-100 dark:border-green-800 rounded-2xl p-4 text-center">
           <p className="text-xs text-green-600 dark:text-green-400 font-medium uppercase tracking-wide mb-1">Ingresos</p>
           <p className="text-xl font-bold text-green-700 dark:text-green-400">{formatCurrency(totalIncome)}</p>
+          <p className="text-[11px] text-green-600 dark:text-green-500 mt-1">{selectedMonth ? 'Este mes' : 'Total acumulado'}</p>
         </div>
+
+        {/* Gastos */}
         <div className="bg-red-50 dark:bg-red-900/30 border border-red-100 dark:border-red-800 rounded-2xl p-4 text-center">
           <p className="text-xs text-red-600 dark:text-red-400 font-medium uppercase tracking-wide mb-1">Gastos</p>
           <p className="text-xl font-bold text-red-700 dark:text-red-400">{formatCurrency(totalExpense)}</p>
+          <p className="text-[11px] text-red-600 dark:text-red-500 mt-1">{selectedMonth ? 'Este mes' : 'Total acumulado'}</p>
         </div>
-        <div className={`rounded-2xl p-4 text-center border ${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800'}`}>
-          <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Balance</p>
-          <p className={`text-xl font-bold ${balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>{formatCurrency(balance)}</p>
+
+        {/* Balance */}
+        <div className={`rounded-2xl p-4 text-center border ${totalBalance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800'}`}>
+          <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${totalBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Balance</p>
+          <p className={`text-xl font-bold ${totalBalance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>{formatCurrency(totalBalance)}</p>
+          {selectedMonth && carryover !== 0 ? (
+            <p className="text-[11px] text-gray-500 dark:text-gray-400 mt-1">
+              Flujo del mes: {formatCurrency(netMonthly)}
+            </p>
+          ) : (
+            <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-1">
+              {selectedMonth ? 'Ingresos − Gastos' : 'Balance acumulado'}
+            </p>
+          )}
         </div>
       </div>
 
@@ -199,8 +240,8 @@ export default function ContabilidadPage() {
                   <td colSpan={4} className="px-5 py-3 text-sm font-semibold text-gray-700 dark:text-gray-300">
                     Total ({filtered.length} transacciones)
                   </td>
-                  <td className={`px-5 py-3 text-right font-bold text-base ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
-                    {formatCurrency(balance)}
+                  <td className={`px-5 py-3 text-right font-bold text-base ${totalBalance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>
+                    {formatCurrency(totalBalance)}
                   </td>
                 </tr>
               </tfoot>

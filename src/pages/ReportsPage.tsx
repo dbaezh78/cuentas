@@ -5,6 +5,7 @@ import {
   calculateCategoryTotals,
   calculateMonthlyTotals,
   formatMonthYear,
+  getCurrentMonth,
   exportToCSV,
   getCategoryConfig,
 } from '../lib/utils';
@@ -13,11 +14,12 @@ import { useSettings } from '../contexts/SettingsContext';
 export default function ReportsPage() {
   const { transactions } = useTransactions();
   const { formatCurrency, customCategories } = useSettings();
-  const [selectedMonth, setSelectedMonth] = useState(''); // '' = all months
+  const [selectedMonth, setSelectedMonth] = useState(getCurrentMonth());
 
   // All months that have at least one transaction, sorted oldest→newest for running balance calc
   const months = useMemo(() => {
     const set = new Set(transactions.map(t => t.date.slice(0, 7)));
+    set.add(getCurrentMonth());
     return [...set].sort();
   }, [transactions]);
 
@@ -117,9 +119,13 @@ export default function ReportsPage() {
         <div className={`rounded-2xl p-5 border ${balance >= 0 ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-100 dark:border-blue-800' : 'bg-orange-50 dark:bg-orange-900/30 border-orange-100 dark:border-orange-800'}`}>
           <p className={`text-xs font-medium uppercase tracking-wide mb-1 ${balance >= 0 ? 'text-blue-600 dark:text-blue-400' : 'text-orange-600 dark:text-orange-400'}`}>Balance</p>
           <p className={`text-2xl font-bold ${balance >= 0 ? 'text-blue-700 dark:text-blue-400' : 'text-orange-700 dark:text-orange-400'}`}>{formatCurrency(balance)}</p>
-          {selectedMonth && carryover !== 0 && (
+          {selectedMonth && carryover !== 0 ? (
             <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
-              = Ant. + Ing. − Gas.
+              Flujo del mes: {formatCurrency(income - expense)}
+            </p>
+          ) : (
+            <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">
+              {selectedMonth ? 'Ingresos − Gastos' : 'Balance acumulado'}
             </p>
           )}
         </div>
